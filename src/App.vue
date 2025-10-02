@@ -67,7 +67,8 @@ body {
   width: 30%; 
   max-width: 350px; 
   display: flex; 
-  flex-direction: column; 
+  flex-direction: column;
+  height: 80vh; 
 }
 .history-table-container { 
   background-color: #f0d9b5; 
