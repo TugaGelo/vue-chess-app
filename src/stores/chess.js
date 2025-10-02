@@ -16,31 +16,27 @@ export const useChessStore = defineStore('chess', () => {
     boardAPI = api;
   }
 
+  // Listener for the initial state when we connect
   socket.on('boardState', (gameState) => {
-    console.log('Syncing with initial server state:', gameState);
+    console.log('Received initial board state:', gameState);
     boardAPI?.setPosition(gameState.fen);
     history.value = gameState.history;
   });
 
+  // Listener for all subsequent move updates
   socket.on('moveMade', (gameState) => {
     console.log('Received move update from server:', gameState);
-    // Don't update if we are the source of the move
-    if (boardAPI?.getFen() !== gameState.fen) {
-      boardAPI?.setPosition(gameState.fen);
-      history.value = gameState.history;
-    }
+    boardAPI?.setPosition(gameState.fen);
+    history.value = gameState.history;
   });
 
+  // When the user makes a move, we just tell the server. That's it.
   function handleMove(move) {
-    // The component already made the move locally. We just send it to the server.
     socket.emit('makeMove', move);
-    // Update local history for a snappy UI
-    history.value = boardAPI?.getHistory({ verbose: true }) || [];
   }
   
   const formattedHistory = computed(() => {
     const movePairs = [];
-    // We now expect verbose history objects
     for (let i = 0; i < history.value.length; i += 2) {
       movePairs.push({
         move: Math.floor(i / 2) + 1,
