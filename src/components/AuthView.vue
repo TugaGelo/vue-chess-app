@@ -10,8 +10,7 @@ const loading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 
-// State to toggle between login, register, and forgot password
-const formMode = ref('login') // 'login', 'register', or 'forgotPassword'
+const formMode = ref('login')
 
 const handleAuth = async () => {
   try {
@@ -62,13 +61,56 @@ const handleAuth = async () => {
 </template>
 
 <style scoped>
-.auth-container { display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #3a3a3a; }
-.auth-box { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); width: 100%; max-width: 400px; text-align: center; }
-input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
-button { width: 100%; padding: 12px; background-color: #b58863; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; transition: background-color 0.3s; }
-button:disabled { background-color: #ccc; }
-.error-message { color: #e74c3c; }
-.success-message { color: #2ecc71; }
-.toggle-links { margin-top: 20px; display: flex; justify-content: space-around; }
-a { color: #b58863; text-decoration: none; }
+.auth-container { 
+  display: flex; 
+  justify-content: center; 
+  align-items: center; 
+  height: 100vh; 
+  background-color: #3a3a3a; 
+}
+.auth-box { 
+  background: white; 
+  padding: 40px; 
+  border-radius: 8px; 
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2); 
+  width: 100%; 
+  max-width: 400px; 
+  text-align: center; 
+}
+input { 
+  width: 90%; 
+  padding: 12px; 
+  margin-bottom: 15px; 
+  border: 1px solid #ccc; 
+  border-radius: 4px; 
+  font-size: 16px; 
+}
+button { 
+  width: 100%; 
+  padding: 12px; 
+  background-color: #b58863; 
+  color: white; 
+  border: none; 
+  border-radius: 4px; 
+  font-size: 16px; 
+  cursor: pointer; 
+  transition: background-color 0.3s; 
+}
+button:disabled { 
+  background-color: #ccc; 
+}
+.error-message { 
+  color: #e74c3c; 
+}
+.success-message { color: #2ecc71; 
+}
+.toggle-links { 
+  margin-top: 20px; 
+  display: flex; 
+  justify-content: space-around; 
+}
+a { 
+  color: #b58863; 
+text-decoration: none; 
+}
 </style>
