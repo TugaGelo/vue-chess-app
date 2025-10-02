@@ -16,21 +16,18 @@ export const useChessStore = defineStore('chess', () => {
     boardAPI = api;
   }
 
-  // Listener for the initial state when we connect
   socket.on('boardState', (gameState) => {
     console.log('Received initial board state:', gameState);
     boardAPI?.setPosition(gameState.fen);
     history.value = gameState.history;
   });
 
-  // Listener for all subsequent move updates
   socket.on('moveMade', (gameState) => {
     console.log('Received move update from server:', gameState);
     boardAPI?.setPosition(gameState.fen);
     history.value = gameState.history;
   });
 
-  // When the user makes a move, we just tell the server. That's it.
   function handleMove(move) {
     socket.emit('makeMove', move);
   }
