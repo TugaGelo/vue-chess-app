@@ -13,7 +13,7 @@ let serverGame = new Chess();
 
 const getGameState = () => ({
   fen: serverGame.fen(),
-  history: serverGame.history({ verbose: true }) // Send verbose history
+  history: serverGame.history({ verbose: true })
 });
 
 io.on('connection', (socket) => {
