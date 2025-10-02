@@ -10,7 +10,7 @@ export const useChessStore = defineStore('chess', () => {
     movable: { color: 'both', free: false },
   };
 
-  const socket = io('http://localhost:3000');
+  const socket = io(`http://${window.location.hostname}:3000`);
 
   function setBoardApi(api) {
     boardAPI = api;
