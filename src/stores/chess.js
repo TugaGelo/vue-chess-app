@@ -8,7 +8,9 @@ export const useChessStore = defineStore('chess', () => {
   const history = ref([]);
   const gameOverMessage = ref(''); 
 
-  const boardConfig = { movable: { color: 'both', free: false } };
+  const boardConfig = { 
+    movable: { color: 'both', free: false },
+    coordinates: true};
 
   function setBoardApi(api) {
     boardAPI = api;
@@ -77,6 +79,6 @@ export const useChessStore = defineStore('chess', () => {
     gameOverMessage,
     setGameOverMessage,
     flipBoard,
-    resetGame 
+    resetGame
   };
 });

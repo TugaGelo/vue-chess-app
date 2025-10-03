@@ -59,6 +59,7 @@ function handleDraw() {
             @checkmate="handleCheckmate"
             @stalemate="handleStalemate"
             @draw="handleDraw"
+            reactive-config
           />
         </div>
         <div class="history-wrapper">
