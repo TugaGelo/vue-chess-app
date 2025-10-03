@@ -4,17 +4,13 @@ import { supabase } from '@/supabase';
 
 export const useUserStore = defineStore('user', () => {
   const user = ref(null);
-  
   const requiresPasswordUpdate = ref(false);
 
   supabase.auth.onAuthStateChange((event, session) => {
     user.value = session;
-
     if (event === 'PASSWORD_RECOVERY') {
       requiresPasswordUpdate.value = true;
-    } 
-
-    else if (event === 'SIGNED_IN') {
+    } else if (event === 'SIGNED_IN') {
       requiresPasswordUpdate.value = false;
     }
   });
@@ -53,7 +49,7 @@ export const useUserStore = defineStore('user', () => {
       password: newPassword,
     });
     if (error) throw error;
-    
+
     requiresPasswordUpdate.value = false;
     return data;
   };

@@ -1,48 +1,68 @@
 <script setup>
+import { watch } from 'vue';
+import { useUserStore } from './stores/user';
 import { useChessStore } from './stores/chess';
+import AuthView from './components/AuthView.vue';
+import AccountView from './components/AccountView.vue';
 import { TheChessboard } from 'vue3-chessboard';
 import 'vue3-chessboard/style.css';
 
+const userStore = useUserStore();
 const chessStore = useChessStore();
 
 function onBoardCreated(boardApi) {
   chessStore.setBoardApi(boardApi);
 }
+
+watch(() => userStore.user, (newUser) => {
+  if (newUser) {
+    chessStore.connect();
+  } else {
+    chessStore.disconnect();
+  }
+}, { immediate: true });
 </script>
 
 <template>
-  <div class="app-container">
-    <div class="main-content">
-      <div class="board-wrapper">
-        <TheChessboard
-          :board-config="chessStore.boardConfig"
-          @board-created="onBoardCreated"
-          @move="chessStore.handleMove"
-        />
-      </div>
-      <div class="history-wrapper">
-        <h2>Move History</h2>
-        <div class="history-table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>White</th>
-                <th>Black</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="move in chessStore.formattedHistory" :key="move.move">
-                <td>{{ move.move }}</td>
-                <td>{{ move.white }}</td>
-                <td>{{ move.black }}</td>
-              </tr>
-            </tbody>
-          </table>
+  <div v-if="userStore.user">
+    <AccountView v-if="userStore.requiresPasswordUpdate" />
+    <div v-else class="app-container">
+      <div class="main-content">
+        <div class="board-wrapper">
+          <TheChessboard
+            :board-config="chessStore.boardConfig"
+            @board-created="onBoardCreated"
+            @move="chessStore.handleMove"
+          />
+        </div>
+        <div class="history-wrapper">
+          <div class="header-bar">
+            <h2>Welcome!</h2>
+            <button @click="userStore.signOut()" class="logout-button">Logout</button>
+          </div>
+          <div class="history-table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>White</th>
+                  <th>Black</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="move in chessStore.formattedHistory" :key="move.move">
+                  <td>{{ move.move }}</td>
+                  <td>{{ move.white }}</td>
+                  <td>{{ move.black }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
   </div>
+  <AuthView v-else />
 </template>
 
 <style>
@@ -92,5 +112,19 @@ thead {
 }
 tbody tr:nth-child(even) { 
   background-color: #e3c196; 
+}
+.header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.logout-button {
+  padding: 5px 10px;
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
 }
 </style>

@@ -4,32 +4,40 @@ import { io } from 'socket.io-client';
 
 export const useChessStore = defineStore('chess', () => {
   let boardAPI = null;
+  let socket = null;
   const history = ref([]);
 
-  const boardConfig = {
-    movable: { color: 'both', free: false },
-  };
-
-  const socket = io(`http://${window.location.hostname}:3000`);
+  const boardConfig = { movable: { color: 'both', free: false } };
 
   function setBoardApi(api) {
     boardAPI = api;
   }
 
-  socket.on('boardState', (gameState) => {
-    console.log('Received initial board state:', gameState);
-    boardAPI?.setPosition(gameState.fen);
-    history.value = gameState.history;
-  });
+  function connect() {
+    socket = io(`http://${window.location.hostname}:3000`);
 
-  socket.on('moveMade', (gameState) => {
-    console.log('Received move update from server:', gameState);
-    boardAPI?.setPosition(gameState.fen);
-    history.value = gameState.history;
-  });
+    socket.on('boardState', (gameState) => {
+      boardAPI?.setPosition(gameState.fen);
+      history.value = gameState.history;
+    });
+
+    socket.on('moveMade', (gameState) => {
+      if (boardAPI?.getFen() !== gameState.fen) {
+        boardAPI?.setPosition(gameState.fen);
+      }
+      history.value = gameState.history;
+    });
+  }
+  
+  function disconnect() {
+    if (socket) {
+      socket.disconnect();
+      socket = null;
+    }
+  }
 
   function handleMove(move) {
-    socket.emit('makeMove', move);
+    socket?.emit('makeMove', move);
   }
   
   const formattedHistory = computed(() => {
@@ -45,10 +53,12 @@ export const useChessStore = defineStore('chess', () => {
   });
 
   return { 
-    history,
-    boardConfig,
+    history, 
+    boardConfig, 
     formattedHistory, 
-    setBoardApi,
-    handleMove
+    setBoardApi, 
+    handleMove, 
+    connect, 
+    disconnect 
   };
 });
