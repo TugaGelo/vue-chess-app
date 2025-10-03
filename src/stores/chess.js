@@ -6,6 +6,7 @@ export const useChessStore = defineStore('chess', () => {
   let boardAPI = null;
   let socket = null;
   const history = ref([]);
+  const gameOverMessage = ref(''); 
 
   const boardConfig = { movable: { color: 'both', free: false } };
 
@@ -19,6 +20,7 @@ export const useChessStore = defineStore('chess', () => {
     socket.on('boardState', (gameState) => {
       boardAPI?.setPosition(gameState.fen);
       history.value = gameState.history;
+      gameOverMessage.value = '';
     });
 
     socket.on('moveMade', (gameState) => {
@@ -52,6 +54,10 @@ export const useChessStore = defineStore('chess', () => {
     return movePairs;
   });
 
+  function setGameOverMessage(message) {
+    gameOverMessage.value = message;
+  }
+
   return { 
     history, 
     boardConfig, 
@@ -59,6 +65,8 @@ export const useChessStore = defineStore('chess', () => {
     setBoardApi, 
     handleMove, 
     connect, 
-    disconnect 
+    disconnect,
+    gameOverMessage,
+    setGameOverMessage 
   };
 });

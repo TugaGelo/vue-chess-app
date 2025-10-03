@@ -21,6 +21,19 @@ watch(() => userStore.user, (newUser) => {
     chessStore.disconnect();
   }
 }, { immediate: true });
+
+function handleCheckmate(matedPlayerColor) {
+  const winner = matedPlayerColor === 'white' ? 'Black' : 'White';
+  chessStore.setGameOverMessage(`Checkmate! ${winner} wins.`);
+}
+
+function handleStalemate() {
+  chessStore.setGameOverMessage('Game over: Stalemate.');
+}
+
+function handleDraw() {
+  chessStore.setGameOverMessage('Game over: Draw.');
+}
 </script>
 
 <template>
@@ -33,6 +46,9 @@ watch(() => userStore.user, (newUser) => {
             :board-config="chessStore.boardConfig"
             @board-created="onBoardCreated"
             @move="chessStore.handleMove"
+            @checkmate="handleCheckmate"
+            @stalemate="handleStalemate"
+            @draw="handleDraw"
           />
         </div>
         <div class="history-wrapper">
@@ -56,7 +72,10 @@ watch(() => userStore.user, (newUser) => {
                   <td>{{ move.black }}</td>
                 </tr>
               </tbody>
-            </table>
+              </table>
+            <div v-if="chessStore.gameOverMessage" class="game-over-message">
+              {{ chessStore.gameOverMessage }}
+            </div>
           </div>
         </div>
       </div>
@@ -126,5 +145,13 @@ tbody tr:nth-child(even) {
   border: none;
   border-radius: 4px;
   cursor: pointer;
+}
+.game-over-message {
+  padding: 15px;
+  font-size: 1.5em;
+  font-weight: bold;
+  color: #c0392b;
+  border-top: 2px solid #b58863;
+  margin-top: auto;
 }
 </style>
