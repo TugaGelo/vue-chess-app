@@ -59,11 +59,17 @@ function handleDraw() {
             @checkmate="handleCheckmate"
             @stalemate="handleStalemate"
             @draw="handleDraw"
-            reactive-config
           />
         </div>
         <div class="history-wrapper">
-          <div class="history-content-scroll" ref="historyContainer"> <table>
+          <div class="playback-controls">
+            <button @click="chessStore.viewStart()">&lt;&lt;</button>
+            <button @click="chessStore.viewPrevious()">&lt;</button>
+            <button @click="chessStore.viewNext()">&gt;</button>
+            <button @click="chessStore.viewEnd()">&gt;&gt;</button>
+          </div>
+          <div class="history-content-scroll" ref="historyContainer">
+            <table>
               <thead>
                 <tr>
                   <th>#</th>
@@ -83,7 +89,8 @@ function handleDraw() {
               {{ chessStore.gameOverMessage }}
             </div>
           </div>
-          <div class="button-group"> <button @click="chessStore.resetGame" class="new-game-button">New Game</button>
+          <div class="button-group">
+            <button @click="chessStore.resetGame" class="new-game-button">New Game</button>
             <button @click="chessStore.flipBoard" class="action-button">Flip Board</button>
             <button @click="userStore.signOut()" class="logout-button">Logout</button>
           </div>
@@ -181,6 +188,28 @@ tbody tr:nth-child(even) {
 }
 .logout-button {
   background-color: #e74c3c;
+}
+
+.playback-controls {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  gap: 10px;
+}
+.playback-controls button {
+  flex: 1;
+  font-family: monospace;
+  font-size: 1.5em;
+  font-weight: bold;
+  line-height: 1;
+  border: 1px solid #b58863;
+  background: #e3c196;
+  color: #333;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.playback-controls button:hover {
+  background: #d4b58c;
 }
 
 @media (max-width: 900px) {
