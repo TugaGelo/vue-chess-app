@@ -45,6 +45,10 @@ export const useChessStore = defineStore('chess', () => {
   function handleMove(move) {
     socket?.emit('makeMove', move);
   }
+
+  function resetGame() {
+    socket?.emit('resetGame');
+  }
   
   const formattedHistory = computed(() => {
     const movePairs = [];
@@ -72,6 +76,7 @@ export const useChessStore = defineStore('chess', () => {
     disconnect,
     gameOverMessage,
     setGameOverMessage,
-    flipBoard 
+    flipBoard,
+    resetGame 
   };
 });

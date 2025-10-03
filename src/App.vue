@@ -53,7 +53,8 @@ function handleDraw() {
       <div class="main-content">
         <div class="board-wrapper">
           <TheChessboard
-            :board-config="chessStore.boardConfig" @board-created="onBoardCreated"
+            :board-config="chessStore.boardConfig"
+            @board-created="onBoardCreated"
             @move="chessStore.handleMove"
             @checkmate="handleCheckmate"
             @stalemate="handleStalemate"
@@ -64,6 +65,7 @@ function handleDraw() {
           <div class="header-bar">
             <h2>Welcome!</h2>
             <div class="button-group">
+              <button @click="chessStore.resetGame" class="new-game-button">New Game</button>
               <button @click="chessStore.flipBoard" class="action-button">Flip Board</button>
               <button @click="userStore.signOut()" class="logout-button">Logout</button>
             </div>
@@ -173,6 +175,22 @@ tbody tr:nth-child(even) {
 .action-button {
   padding: 5px 10px;
   background-color: #769656;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.logout-button {
+  padding: 5px 10px;
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.new-game-button {
+  padding: 5px 10px;
+  background-color: #007bff;
   color: white;
   border: none;
   border-radius: 4px;
