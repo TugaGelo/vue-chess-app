@@ -62,16 +62,7 @@ function handleDraw() {
           />
         </div>
         <div class="history-wrapper">
-          <div class="header-bar">
-            <h2>Welcome!</h2>
-            <div class="button-group">
-              <button @click="chessStore.resetGame" class="new-game-button">New Game</button>
-              <button @click="chessStore.flipBoard" class="action-button">Flip Board</button>
-              <button @click="userStore.signOut()" class="logout-button">Logout</button>
-            </div>
-          </div>
-          <div class="history-table-container" ref="historyContainer">
-            <table>
+          <div class="history-content-scroll" ref="historyContainer"> <table>
               <thead>
                 <tr>
                   <th>#</th>
@@ -91,6 +82,10 @@ function handleDraw() {
               {{ chessStore.gameOverMessage }}
             </div>
           </div>
+          <div class="button-group"> <button @click="chessStore.resetGame" class="new-game-button">New Game</button>
+            <button @click="chessStore.flipBoard" class="action-button">Flip Board</button>
+            <button @click="userStore.signOut()" class="logout-button">Logout</button>
+          </div>
         </div>
       </div>
     </div>
@@ -105,29 +100,37 @@ body {
 }
 .app-container { 
   text-align: center; 
-  padding: 20px; 
+  padding: 10px; 
 }
 .main-content { 
   display: flex; 
   justify-content: center; 
-  gap: 7.5rem; 
+  gap: 5rem; 
+  flex-wrap: wrap;
+  margin-top: 1rem;
 }
 .board-wrapper { 
   width: 70%; 
-  max-width: 80vh; 
+  max-width: 85vh; 
+  flex-shrink: 0;
 }
 .history-wrapper { 
   width: 30%; 
   max-width: 350px; 
   display: flex; 
   flex-direction: column;
-  height: 80vh; 
+  height: 85vh; 
+  background-color: #f0d9b5;
+  border-radius: 5px;
+  padding: 15px;
+  margin-top: 1rem;
+  box-sizing: border-box;
 }
-.history-table-container { 
-  background-color: #f0d9b5; 
-  border-radius: 5px; 
-  flex-grow: 1; 
-  overflow-y: auto; 
+.history-content-scroll {
+  flex-grow: 1;
+  overflow-y: auto;
+  margin-bottom: 10px;
+  background-color: #f0d9b5;
 }
 table { 
   width: 100%; 
@@ -142,58 +145,72 @@ thead {
   color: white; 
   position: sticky; 
   top: 0; 
+  z-index: 1;
 }
 tbody tr:nth-child(even) { 
   background-color: #e3c196; 
 }
-.header-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-}
-.logout-button {
-  padding: 5px 10px;
-  background-color: #e74c3c;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
 .game-over-message {
   padding: 15px;
-  font-size: 1.5em;
+  font-size: 1.2em;
   font-weight: bold;
   color: #c0392b;
   border-top: 2px solid #b58863;
-  margin-top: auto;
+  background-color: #f0d9b5;
 }
 .button-group {
   display: flex;
   gap: 10px;
+  flex-shrink: 0;
 }
-.action-button {
-  padding: 5px 10px;
-  background-color: #769656;
+.button-group button {
+  flex: 1;
+  padding: 10px;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-}
-.logout-button {
-  padding: 5px 10px;
-  background-color: #e74c3c;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+  font-size: 1em;
 }
 .new-game-button {
-  padding: 5px 10px;
   background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+}
+.action-button {
+  background-color: #769656;
+}
+.logout-button {
+  background-color: #e74c3c;
+}
+
+@media (max-width: 900px) {
+  .main-content {
+    flex-direction: column; 
+    align-items: center;   
+    gap: 0px;
+  }
+  .board-wrapper {
+    width: 95%;
+    max-width: 95vw;
+    height: 95vw;
+  }
+  .history-wrapper {
+    width: 95%;
+    max-width: 95vw;
+    height: auto;
+    min-height: 200px;
+    margin-top: 0rem;
+  }
+  .history-content-scroll {
+    height: 200px;
+  }
+  .button-group {
+    flex-wrap: wrap;
+  }
+  .button-group button {
+    flex-basis: calc(50% - 5px);
+  }
+  .button-group .logout-button {
+    flex-basis: 100%;
+  }
 }
 </style>
