@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, nextTick } from 'vue'; // Make sure all three are imported
+import { ref, watch, nextTick } from 'vue';
 import { useUserStore } from './stores/user';
 import { useChessStore } from './stores/chess';
 import AuthView from './components/AuthView.vue';
@@ -10,7 +10,6 @@ import 'vue3-chessboard/style.css';
 const userStore = useUserStore();
 const chessStore = useChessStore();
 
-// --- NEW: Create a template ref for the history container ---
 const historyContainer = ref(null);
 
 function onBoardCreated(boardApi) {
@@ -54,8 +53,7 @@ function handleDraw() {
       <div class="main-content">
         <div class="board-wrapper">
           <TheChessboard
-            :board-config="chessStore.boardConfig"
-            @board-created="onBoardCreated"
+            :board-config="chessStore.boardConfig" @board-created="onBoardCreated"
             @move="chessStore.handleMove"
             @checkmate="handleCheckmate"
             @stalemate="handleStalemate"
@@ -65,7 +63,10 @@ function handleDraw() {
         <div class="history-wrapper">
           <div class="header-bar">
             <h2>Welcome!</h2>
-            <button @click="userStore.signOut()" class="logout-button">Logout</button>
+            <div class="button-group">
+              <button @click="chessStore.flipBoard" class="action-button">Flip Board</button>
+              <button @click="userStore.signOut()" class="logout-button">Logout</button>
+            </div>
           </div>
           <div class="history-table-container" ref="historyContainer">
             <table>
@@ -164,5 +165,17 @@ tbody tr:nth-child(even) {
   color: #c0392b;
   border-top: 2px solid #b58863;
   margin-top: auto;
+}
+.button-group {
+  display: flex;
+  gap: 10px;
+}
+.action-button {
+  padding: 5px 10px;
+  background-color: #769656;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
 }
 </style>

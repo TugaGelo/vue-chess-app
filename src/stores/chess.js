@@ -30,6 +30,10 @@ export const useChessStore = defineStore('chess', () => {
       history.value = gameState.history;
     });
   }
+
+  function flipBoard() {
+    boardAPI?.toggleOrientation();
+  }
   
   function disconnect() {
     if (socket) {
@@ -67,6 +71,7 @@ export const useChessStore = defineStore('chess', () => {
     connect, 
     disconnect,
     gameOverMessage,
-    setGameOverMessage 
+    setGameOverMessage,
+    flipBoard 
   };
 });
