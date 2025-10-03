@@ -1,5 +1,5 @@
 <script setup>
-import { watch } from 'vue';
+import { ref, watch, nextTick } from 'vue'; // Make sure all three are imported
 import { useUserStore } from './stores/user';
 import { useChessStore } from './stores/chess';
 import AuthView from './components/AuthView.vue';
@@ -9,6 +9,9 @@ import 'vue3-chessboard/style.css';
 
 const userStore = useUserStore();
 const chessStore = useChessStore();
+
+// --- NEW: Create a template ref for the history container ---
+const historyContainer = ref(null);
 
 function onBoardCreated(boardApi) {
   chessStore.setBoardApi(boardApi);
@@ -21,6 +24,14 @@ watch(() => userStore.user, (newUser) => {
     chessStore.disconnect();
   }
 }, { immediate: true });
+
+watch(() => chessStore.history, () => {
+  nextTick(() => {
+    if (historyContainer.value) {
+      historyContainer.value.scrollTop = historyContainer.value.scrollHeight;
+    }
+  });
+}, { deep: true });
 
 function handleCheckmate(matedPlayerColor) {
   const winner = matedPlayerColor === 'white' ? 'Black' : 'White';
@@ -56,7 +67,7 @@ function handleDraw() {
             <h2>Welcome!</h2>
             <button @click="userStore.signOut()" class="logout-button">Logout</button>
           </div>
-          <div class="history-table-container">
+          <div class="history-table-container" ref="historyContainer">
             <table>
               <thead>
                 <tr>
@@ -72,7 +83,7 @@ function handleDraw() {
                   <td>{{ move.black }}</td>
                 </tr>
               </tbody>
-              </table>
+            </table>
             <div v-if="chessStore.gameOverMessage" class="game-over-message">
               {{ chessStore.gameOverMessage }}
             </div>
