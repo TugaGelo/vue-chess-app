@@ -15,7 +15,7 @@ const gameIdInput = ref('');
         <button @click="chessStore.createGame">Create New Game</button>
         <div class="join-game">
           <input v-model.trim="gameIdInput" @keyup.enter="chessStore.joinGame(gameIdInput)" placeholder="Enter Game ID" />
-          <button @click="chessStore.joinGame(gameIdInput)">Join Game</button>
+          <button @click="chessStore.joinGame(gameIdInput)">Join</button>
         </div>
       </div>
       <p v-if="chessStore.gamePhase === 'waiting'" class="game-id-display">
@@ -28,53 +28,71 @@ const gameIdInput = ref('');
 
 <style scoped>
 .lobby-container { 
-    display: flex; 
-    justify-content: center; 
-    align-items: center; 
-    height: 100vh; 
-    background-color: #3a3a3a; 
-    text-align: center; 
-    font-family: sans-serif; 
+  display: flex; 
+  justify-content: center; 
+  align-items: center; 
+  height: 100vh; 
+  background-color: #3a3a3a; 
+  text-align: center; 
+  font-family: sans-serif; 
 }
 .lobby-box { 
-    background: white; 
-    padding: 40px; 
-    border-radius: 8px; 
-    box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+  background: white; 
+  padding: 40px; 
+  border-radius: 8px; 
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+  width: 100%;
+  max-width: 400px;
+}
+h1 {
+  color: #333;
+}
+p {
+  color: #666;
+  margin-bottom: 20px;
+}
 .actions { 
-    display: flex; 
-    flex-direction: column; 
-    gap: 20px; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 20px; 
 }
 button { 
-    padding: 12px; 
-    font-size: 1.2em; 
-    cursor: pointer; 
-    border-radius: 5px; 
-    border: none; 
-    background-color: #769656; 
-    color: white; 
+  padding: 12px; 
+  font-size: 16px;
+  cursor: pointer; 
+  border-radius: 4px; 
+  border: none; 
+  background-color: #b58863;
+  color: white; 
+  transition: background-color 0.3s;
+}
+button:hover {
+  background-color: #9c714c;
 }
 .join-game { 
-    display: flex; 
-    gap: 10px; 
+  display: flex; 
+  gap: 10px; 
 }
-.join-game input { 
-    flex: 1; 
-    padding: 12px; 
-    border: 1px solid #ccc; 
-    border-radius: 5px; 
-    font-size: 1.1em; 
+input {
+  flex: 1; 
+  padding: 12px; 
+  border: 1px solid #ccc; 
+  border-radius: 4px; 
+  font-size: 16px;
+}
+
+.join-game button {
+  flex: 0.5;
 }
 .game-id-display { 
-    margin-top: 20px; 
-    font-size: 1.2em; 
-    background-color: #f0f0f0; 
-    padding: 10px; 
-    border-radius: 5px; 
+  margin-top: 20px; 
+  font-size: 1.2em; 
+  background-color: #f0f0f0; 
+  padding: 10px; 
+  border-radius: 5px; 
 }
 .error-message { 
-    color: #e74c3c; 
-    margin-top: 15px; 
-    }
+  color: #e74c3c; 
+  margin-top: 15px; 
+}
 </style>
