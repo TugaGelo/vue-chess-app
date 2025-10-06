@@ -36,17 +36,14 @@ watch(() => chessStore.history, () => {
 function handleCheckmate(matedPlayerColor) {
   const winner = matedPlayerColor === 'white' ? 'Black' : 'White';
   chessStore.setGameOverMessage(`Checkmate! ${winner} wins.`);
-  chessStore.setGameOver(true);
 }
 
 function handleStalemate() {
   chessStore.setGameOverMessage('Game over: Stalemate.');
-  chessStore.setGameOver(true);
 }
 
 function handleDraw() {
   chessStore.setGameOverMessage('Game over: Draw.');
-  chessStore.setGameOver(true);
 }
 </script>
 
@@ -58,7 +55,8 @@ function handleDraw() {
       <div class="main-content">
         <div class="board-wrapper">
           <TheChessboard
-            :player-color="chessStore.playerColor" :board-config="chessStore.boardConfig"
+            :player-color="chessStore.playerColor"
+            :board-config="chessStore.boardConfig"
             @board-created="onBoardCreated"
             @move="chessStore.handleMove"
             @checkmate="handleCheckmate"
@@ -68,7 +66,7 @@ function handleDraw() {
         </div>
         <div class="history-wrapper">
           <div class="game-info">
-            <p>You are: <strong>{{ chessStore.playerColor }}</strong></p>
+            <p>You are playing as: <strong>{{ chessStore.playerColor }}</strong></p>
             <p>Game ID: <strong>{{ chessStore.gameId }}</strong></p>
           </div>
           <div class="playback-controls">

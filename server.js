@@ -11,6 +11,12 @@ const io = new Server(server, { cors: { origin: "*" } });
 
 const games = {}; 
 
+const getGameState = (gameInstance) => ({
+  fen: gameInstance.fen(),
+  history: gameInstance.history({ verbose: true }),
+  isGameOver: gameInstance.isGameOver()
+});
+
 io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);
 
@@ -32,7 +38,7 @@ io.on('connection', (socket) => {
       gameData.players.black = socket.id;
       socket.join(gameId);
       
-      const gameState = { fen: gameData.game.fen(), history: gameData.game.history({ verbose: true }) };
+      const gameState = getGameState(gameData.game);
       io.to(gameData.players.white).emit('gameStarted', { ...gameState, playerColor: 'white' });
       io.to(gameData.players.black).emit('gameStarted', { ...gameState, playerColor: 'black' });
       console.log(`${socket.id} (Black) joined game ${gameId}. Game starting.`);
@@ -58,18 +64,27 @@ io.on('connection', (socket) => {
 
     const result = game.move(move);
     if (result) {
-      const gameState = { fen: game.fen(), history: game.history({ verbose: true }) };
-      io.to(gameId).emit('moveMade', gameState);
+      io.to(gameId).emit('moveMade', getGameState(game));
     }
   });
 
   socket.on('resetGame', (gameId) => {
-      const gameData = games[gameId];
-      if(gameData) {
-          gameData.game = new Chess();
-          const gameState = { fen: gameData.game.fen(), history: gameData.game.history({ verbose: true }) };
-          io.to(gameId).emit('boardState', gameState);
+    const gameData = games[gameId];
+    if(gameData) {
+      gameData.game = new Chess();
+      const whitePlayer = gameData.players.white;
+      gameData.players.white = gameData.players.black;
+      gameData.players.black = whitePlayer;
+      console.log(`Game ${gameId} reset. Colors swapped.`);
+
+      const gameState = getGameState(gameData.game);
+      if (gameData.players.white) {
+        io.to(gameData.players.white).emit('gameStarted', { ...gameState, playerColor: 'white' });
       }
+      if (gameData.players.black) {
+        io.to(gameData.players.black).emit('gameStarted', { ...gameState, playerColor: 'black' });
+      }
+    }
   });
 
   socket.on('disconnect', () => {

@@ -30,29 +30,41 @@ export const useChessStore = defineStore('chess', () => {
       gameId.value = data.gameId;
       playerColor.value = data.playerColor;
       gamePhase.value = 'waiting';
-      isGameOver.value = false;
-      gameOverMessage.value = '';
+      boardAPI?.setConfig({ 
+        orientation: 'white',
+        movable: { color: 'white', free: false } 
+      });
     });
 
     socket.on('gameStarted', (gameState) => {
-      boardAPI?.setPosition(gameState.fen);
       history.value = gameState.history;
       playerColor.value = gameState.playerColor;
       gamePhase.value = 'playing';
-      isGameOver.value = false;
+      isGameOver.value = gameState.isGameOver;
       gameOverMessage.value = '';
+
+      boardAPI?.resetBoard();
+      boardAPI?.setPosition(gameState.fen);
+      boardAPI?.setConfig({
+          orientation: gameState.playerColor,
+          movable: {
+              color: gameState.playerColor,
+              free: false
+          }
+      });
     });
 
     socket.on('moveMade', (gameState) => {
       boardAPI?.setPosition(gameState.fen);
       history.value = gameState.history;
+      isGameOver.value = gameState.isGameOver;
     });
 
     socket.on('boardState', (gameState) => {
-      boardAPI?.setPosition(gameState.fen);
       history.value = gameState.history;
+      isGameOver.value = gameState.isGameOver;
       gameOverMessage.value = '';
-      isGameOver.value = false;
+      if (boardAPI) boardAPI.setPosition(gameState.fen);
     });
     
     socket.on('error', (msg) => {
@@ -90,7 +102,6 @@ export const useChessStore = defineStore('chess', () => {
     socket?.emit('makeMove', { gameId: gameId.value, move: simpleMove });
   }
 
-
   function resetGame() {
     socket?.emit('resetGame', gameId.value);
   }
@@ -107,7 +118,10 @@ export const useChessStore = defineStore('chess', () => {
     return movePairs;
   });
 
-  function setGameOverMessage(message) { gameOverMessage.value = message; }
+  function setGameOverMessage(message) {
+    gameOverMessage.value = message;
+  }
+  
   function viewStart() { boardAPI?.viewStart(); }
   function viewPrevious() { boardAPI?.viewPrevious(); }
   function viewNext() { boardAPI?.viewNext(); }
@@ -117,6 +131,6 @@ export const useChessStore = defineStore('chess', () => {
     history, boardConfig, formattedHistory, setBoardApi, handleMove, 
     connect, disconnect, gameOverMessage, setGameOverMessage,
     resetGame, viewStart, viewPrevious, viewNext, viewEnd, gamePhase, 
-    gameId, playerColor, createGame, joinGame, errorMessage
+    gameId, playerColor, createGame, joinGame, errorMessage, isGameOver,
   };
 });
