@@ -4,6 +4,7 @@ import { useUserStore } from './stores/user';
 import { useChessStore } from './stores/chess';
 import AuthView from './components/AuthView.vue';
 import AccountView from './components/AccountView.vue';
+import LobbyView from './components/LobbyView.vue';
 import { TheChessboard } from 'vue3-chessboard';
 import 'vue3-chessboard/style.css';
 
@@ -36,20 +37,13 @@ function handleCheckmate(matedPlayerColor) {
   const winner = matedPlayerColor === 'white' ? 'Black' : 'White';
   chessStore.setGameOverMessage(`Checkmate! ${winner} wins.`);
 }
-
-function handleStalemate() {
-  chessStore.setGameOverMessage('Game over: Stalemate.');
-}
-
-function handleDraw() {
-  chessStore.setGameOverMessage('Game over: Draw.');
-}
 </script>
 
 <template>
   <div v-if="userStore.user">
     <AccountView v-if="userStore.requiresPasswordUpdate" />
-    <div v-else class="app-container">
+    
+    <div v-else-if="chessStore.gamePhase === 'playing'" class="app-container">
       <div class="main-content">
         <div class="board-wrapper">
           <TheChessboard
@@ -57,11 +51,13 @@ function handleDraw() {
             @board-created="onBoardCreated"
             @move="chessStore.handleMove"
             @checkmate="handleCheckmate"
-            @stalemate="handleStalemate"
-            @draw="handleDraw"
           />
         </div>
         <div class="history-wrapper">
+          <div class="game-info">
+            <p>You are: <strong>{{ chessStore.playerColor }}</strong></p>
+            <p>Game ID: <strong>{{ chessStore.gameId }}</strong></p>
+          </div>
           <div class="playback-controls">
             <button @click="chessStore.viewStart()">&lt;&lt;</button>
             <button @click="chessStore.viewPrevious()">&lt;</button>
@@ -70,33 +66,20 @@ function handleDraw() {
           </div>
           <div class="history-content-scroll" ref="historyContainer">
             <table>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>White</th>
-                  <th>Black</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="move in chessStore.formattedHistory" :key="move.move">
-                  <td>{{ move.move }}</td>
-                  <td>{{ move.white }}</td>
-                  <td>{{ move.black }}</td>
-                </tr>
-              </tbody>
-            </table>
+              </table>
             <div v-if="chessStore.gameOverMessage" class="game-over-message">
               {{ chessStore.gameOverMessage }}
             </div>
           </div>
           <div class="button-group">
-            <button @click="chessStore.resetGame" class="new-game-button">New Game</button>
-            <button @click="chessStore.flipBoard" class="action-button">Flip Board</button>
+            <button @click="chessStore.resetGame()" class="new-game-button">New Game</button>
+            <button @click="chessStore.flipBoard()" class="action-button">Flip Board</button>
             <button @click="userStore.signOut()" class="logout-button">Logout</button>
           </div>
         </div>
       </div>
     </div>
+    <LobbyView v-else />
   </div>
   <AuthView v-else />
 </template>
