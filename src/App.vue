@@ -47,7 +47,7 @@ function handleCheckmate(matedPlayerColor) {
       <div class="main-content">
         <div class="board-wrapper">
           <TheChessboard
-            :board-config="chessStore.boardConfig"
+            :player-color="chessStore.playerColor" :board-config="chessStore.boardConfig"
             @board-created="onBoardCreated"
             @move="chessStore.handleMove"
             @checkmate="handleCheckmate"
@@ -55,7 +55,7 @@ function handleCheckmate(matedPlayerColor) {
         </div>
         <div class="history-wrapper">
           <div class="game-info">
-            <p>You are: <strong>{{ chessStore.playerColor }}</strong></p>
+            <p>You are playing as: <strong>{{ chessStore.playerColor }}</strong></p>
             <p>Game ID: <strong>{{ chessStore.gameId }}</strong></p>
           </div>
           <div class="playback-controls">
@@ -66,7 +66,21 @@ function handleCheckmate(matedPlayerColor) {
           </div>
           <div class="history-content-scroll" ref="historyContainer">
             <table>
-              </table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>White</th>
+                  <th>Black</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="move in chessStore.formattedHistory" :key="move.move">
+                  <td>{{ move.move }}</td>
+                  <td>{{ move.white }}</td>
+                  <td>{{ move.black }}</td>
+                </tr>
+              </tbody>
+            </table>
             <div v-if="chessStore.gameOverMessage" class="game-over-message">
               {{ chessStore.gameOverMessage }}
             </div>
@@ -79,8 +93,10 @@ function handleCheckmate(matedPlayerColor) {
         </div>
       </div>
     </div>
+
     <LobbyView v-else />
   </div>
+
   <AuthView v-else />
 </template>
 

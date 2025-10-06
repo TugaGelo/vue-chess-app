@@ -13,16 +13,10 @@ export const useChessStore = defineStore('chess', () => {
   const gameId = ref('');
   const playerColor = ref('');
 
-  const boardConfig = computed(() => {
-    return {
-      movable: { 
-        color: playerColor.value,
-        free: false 
-      },
-      coordinates: true,
-      highlight: { lastMove: true, check: true },
-    };
-  });
+  const boardConfig = {
+    coordinates: true,
+    highlight: { lastMove: true, check: true },
+  };
 
   function setBoardApi(api) { boardAPI = api; }
 
