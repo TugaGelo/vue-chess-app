@@ -12,11 +12,13 @@ export const useChessStore = defineStore('chess', () => {
   const gamePhase = ref('lobby');
   const gameId = ref('');
   const playerColor = ref('');
+  const isGameOver = ref(false);
 
-  const boardConfig = {
+  const boardConfig = computed(() => ({
     coordinates: true,
     highlight: { lastMove: true, check: true },
-  };
+    orientation: playerColor.value || 'white',
+  }));
 
   function setBoardApi(api) { boardAPI = api; }
 
@@ -28,6 +30,8 @@ export const useChessStore = defineStore('chess', () => {
       gameId.value = data.gameId;
       playerColor.value = data.playerColor;
       gamePhase.value = 'waiting';
+      isGameOver.value = false;
+      gameOverMessage.value = '';
     });
 
     socket.on('gameStarted', (gameState) => {
@@ -35,6 +39,8 @@ export const useChessStore = defineStore('chess', () => {
       history.value = gameState.history;
       playerColor.value = gameState.playerColor;
       gamePhase.value = 'playing';
+      isGameOver.value = false;
+      gameOverMessage.value = '';
     });
 
     socket.on('moveMade', (gameState) => {
@@ -46,6 +52,7 @@ export const useChessStore = defineStore('chess', () => {
       boardAPI?.setPosition(gameState.fen);
       history.value = gameState.history;
       gameOverMessage.value = '';
+      isGameOver.value = false;
     });
     
     socket.on('error', (msg) => {
@@ -101,7 +108,6 @@ export const useChessStore = defineStore('chess', () => {
   });
 
   function setGameOverMessage(message) { gameOverMessage.value = message; }
-  function flipBoard() { boardAPI?.toggleOrientation(); }
   function viewStart() { boardAPI?.viewStart(); }
   function viewPrevious() { boardAPI?.viewPrevious(); }
   function viewNext() { boardAPI?.viewNext(); }
@@ -109,7 +115,7 @@ export const useChessStore = defineStore('chess', () => {
 
   return { 
     history, boardConfig, formattedHistory, setBoardApi, handleMove, 
-    connect, disconnect, gameOverMessage, setGameOverMessage, flipBoard, 
+    connect, disconnect, gameOverMessage, setGameOverMessage,
     resetGame, viewStart, viewPrevious, viewNext, viewEnd, gamePhase, 
     gameId, playerColor, createGame, joinGame, errorMessage
   };

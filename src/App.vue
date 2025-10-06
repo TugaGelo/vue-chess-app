@@ -36,6 +36,17 @@ watch(() => chessStore.history, () => {
 function handleCheckmate(matedPlayerColor) {
   const winner = matedPlayerColor === 'white' ? 'Black' : 'White';
   chessStore.setGameOverMessage(`Checkmate! ${winner} wins.`);
+  chessStore.setGameOver(true);
+}
+
+function handleStalemate() {
+  chessStore.setGameOverMessage('Game over: Stalemate.');
+  chessStore.setGameOver(true);
+}
+
+function handleDraw() {
+  chessStore.setGameOverMessage('Game over: Draw.');
+  chessStore.setGameOver(true);
 }
 </script>
 
@@ -51,11 +62,13 @@ function handleCheckmate(matedPlayerColor) {
             @board-created="onBoardCreated"
             @move="chessStore.handleMove"
             @checkmate="handleCheckmate"
+            @stalemate="handleStalemate"
+            @draw="handleDraw"
           />
         </div>
         <div class="history-wrapper">
           <div class="game-info">
-            <p>You are playing as: <strong>{{ chessStore.playerColor }}</strong></p>
+            <p>You are: <strong>{{ chessStore.playerColor }}</strong></p>
             <p>Game ID: <strong>{{ chessStore.gameId }}</strong></p>
           </div>
           <div class="playback-controls">
@@ -86,8 +99,7 @@ function handleCheckmate(matedPlayerColor) {
             </div>
           </div>
           <div class="button-group">
-            <button @click="chessStore.resetGame()" class="new-game-button">New Game</button>
-            <button @click="chessStore.flipBoard()" class="action-button">Flip Board</button>
+            <button v-if="chessStore.isGameOver" @click="chessStore.resetGame()" class="new-game-button">New Game</button>
             <button @click="userStore.signOut()" class="logout-button">Logout</button>
           </div>
         </div>
