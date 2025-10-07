@@ -9,11 +9,10 @@ app.use(cors());
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
-const games = {}; 
+const games = {};
 
 const getGameState = (gameInstance) => ({
-  fen: gameInstance.fen(),
-  history: gameInstance.history({ verbose: true }),
+  pgn: gameInstance.pgn(),
   isGameOver: gameInstance.isGameOver()
 });
 
@@ -33,7 +32,7 @@ io.on('connection', (socket) => {
 
   socket.on('joinGame', (gameId) => {
     const gameData = games[gameId];
-  
+
     if (gameData && !gameData.players.black && gameData.players.white !== socket.id) {
       gameData.players.black = socket.id;
       socket.join(gameId);
@@ -71,7 +70,7 @@ io.on('connection', (socket) => {
   socket.on('resetGame', (gameId) => {
     const gameData = games[gameId];
     if(gameData) {
-      gameData.game = new Chess();
+      gameData.game.reset();
       const whitePlayer = gameData.players.white;
       gameData.players.white = gameData.players.black;
       gameData.players.black = whitePlayer;

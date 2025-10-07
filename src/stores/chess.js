@@ -20,7 +20,15 @@ export const useChessStore = defineStore('chess', () => {
     orientation: playerColor.value || 'white',
   }));
 
-  function setBoardApi(api) { boardAPI = api; }
+  const initialPgn = ref('');
+
+  function setBoardApi(api) {
+    boardAPI = api;
+    if (gamePhase.value === 'playing' && initialPgn.value) {
+      boardAPI.loadPgn(initialPgn.value);
+      history.value = boardAPI.getHistory({ verbose: true });
+    }
+  }
 
   function connect() {
     if (socket) return;
@@ -30,41 +38,27 @@ export const useChessStore = defineStore('chess', () => {
       gameId.value = data.gameId;
       playerColor.value = data.playerColor;
       gamePhase.value = 'waiting';
-      boardAPI?.setConfig({ 
-        orientation: 'white',
-        movable: { color: 'white', free: false } 
-      });
     });
 
     socket.on('gameStarted', (gameState) => {
-      history.value = gameState.history;
+      initialPgn.value = gameState.pgn;
       playerColor.value = gameState.playerColor;
-      gamePhase.value = 'playing';
       isGameOver.value = gameState.isGameOver;
       gameOverMessage.value = '';
-
-      boardAPI?.resetBoard();
-      boardAPI?.setPosition(gameState.fen);
-      boardAPI?.setConfig({
-          orientation: gameState.playerColor,
-          movable: {
-              color: gameState.playerColor,
-              free: false
-          }
-      });
+      gamePhase.value = 'playing';
     });
 
     socket.on('moveMade', (gameState) => {
-      boardAPI?.setPosition(gameState.fen);
-      history.value = gameState.history;
+      boardAPI?.loadPgn(gameState.pgn);
+      history.value = boardAPI?.getHistory({ verbose: true });
       isGameOver.value = gameState.isGameOver;
     });
 
     socket.on('boardState', (gameState) => {
-      history.value = gameState.history;
+      boardAPI?.loadPgn(gameState.pgn);
+      history.value = boardAPI?.getHistory({ verbose: true });
       isGameOver.value = gameState.isGameOver;
       gameOverMessage.value = '';
-      if (boardAPI) boardAPI.setPosition(gameState.fen);
     });
     
     socket.on('error', (msg) => {
@@ -108,6 +102,7 @@ export const useChessStore = defineStore('chess', () => {
 
   const formattedHistory = computed(() => {
     const movePairs = [];
+    if (!history.value) return [];
     for (let i = 0; i < history.value.length; i += 2) {
       movePairs.push({
         move: Math.floor(i / 2) + 1,
