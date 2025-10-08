@@ -60,6 +60,13 @@ export const useChessStore = defineStore('chess', () => {
       gamePhase.value = 'playing';
 
       if (boardAPI) {
+        boardAPI.resetBoard();
+        boardAPI.setConfig({ 
+          orientation: playerColor.value,
+          movable: { color: playerColor.value } 
+        });
+
+
         const cleaned = sanitizePgn(initialPgn.value);
         if (cleaned) boardAPI.loadPgn(cleaned);
         history.value = boardAPI.getHistory(true);
@@ -67,24 +74,20 @@ export const useChessStore = defineStore('chess', () => {
     });
 
     socket.on('moveMade', (gameState) => {
-      try {
-        if (gameState.pgn && boardAPI) {
-          const cleaned = sanitizePgn(gameState.pgn);
-          if (cleaned) boardAPI.loadPgn(cleaned);
-        }
-      } catch (err) {
-        console.error('Failed to load PGN:', err);
+      if (boardAPI) {
+        const cleaned = sanitizePgn(gameState.pgn);
+        if (cleaned) boardAPI.loadPgn(cleaned);
+        history.value = boardAPI.getHistory(true) || [];
       }
-      history.value = boardAPI?.getHistory(true) || [];
       isGameOver.value = gameState.isGameOver;
     });
 
     socket.on('boardState', (gameState) => {
-      if (gameState.pgn && boardAPI) {
+      if (boardAPI) {
         const cleaned = sanitizePgn(gameState.pgn);
         if (cleaned) boardAPI.loadPgn(cleaned);
+        history.value = boardAPI.getHistory(true);
       }
-      history.value = boardAPI?.getHistory(true);
       isGameOver.value = gameState.isGameOver;
       gameOverMessage.value = '';
     });
