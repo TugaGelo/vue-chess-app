@@ -14,19 +14,31 @@ export const useChessStore = defineStore('chess', () => {
   const playerColor = ref('');
   const isGameOver = ref(false);
 
+  const initialPgn = ref('');
+
   const boardConfig = computed(() => ({
     coordinates: true,
     highlight: { lastMove: true, check: true },
     orientation: playerColor.value || 'white',
   }));
 
-  const initialPgn = ref('');
+  function sanitizePgn(pgn) {
+    return pgn
+      .split('\n')
+      .filter(line => !line.startsWith('[') && line.trim() !== '')
+      .join(' ')
+      .replace(/\*/g, '')
+      .trim();
+  }
 
   function setBoardApi(api) {
     boardAPI = api;
     if (gamePhase.value === 'playing' && initialPgn.value) {
-      boardAPI.loadPgn(initialPgn.value);
-      history.value = boardAPI.getHistory({ verbose: true });
+      const cleaned = sanitizePgn(initialPgn.value);
+      if (cleaned) {
+        boardAPI.loadPgn(cleaned);
+        history.value = boardAPI.getHistory(true);
+      }
     }
   }
 
@@ -46,23 +58,39 @@ export const useChessStore = defineStore('chess', () => {
       isGameOver.value = gameState.isGameOver;
       gameOverMessage.value = '';
       gamePhase.value = 'playing';
+
+      if (boardAPI) {
+        const cleaned = sanitizePgn(initialPgn.value);
+        if (cleaned) boardAPI.loadPgn(cleaned);
+        history.value = boardAPI.getHistory(true);
+      }
     });
 
     socket.on('moveMade', (gameState) => {
-      boardAPI?.loadPgn(gameState.pgn);
-      history.value = boardAPI?.getHistory({ verbose: true });
+      try {
+        if (gameState.pgn && boardAPI) {
+          const cleaned = sanitizePgn(gameState.pgn);
+          if (cleaned) boardAPI.loadPgn(cleaned);
+        }
+      } catch (err) {
+        console.error('Failed to load PGN:', err);
+      }
+      history.value = boardAPI?.getHistory(true) || [];
       isGameOver.value = gameState.isGameOver;
     });
 
     socket.on('boardState', (gameState) => {
-      boardAPI?.loadPgn(gameState.pgn);
-      history.value = boardAPI?.getHistory({ verbose: true });
+      if (gameState.pgn && boardAPI) {
+        const cleaned = sanitizePgn(gameState.pgn);
+        if (cleaned) boardAPI.loadPgn(cleaned);
+      }
+      history.value = boardAPI?.getHistory(true);
       isGameOver.value = gameState.isGameOver;
       gameOverMessage.value = '';
     });
     
     socket.on('error', (msg) => {
-        errorMessage.value = msg;
+      errorMessage.value = msg;
     });
   }
 
