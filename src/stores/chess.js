@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue';
 import { defineStore } from 'pinia';
 import { io } from 'socket.io-client';
+import { supabase } from '../supabase';
 
 export const useChessStore = defineStore('chess', () => {
   let boardAPI = null;
@@ -15,6 +16,7 @@ export const useChessStore = defineStore('chess', () => {
   const isGameOver = ref(false);
 
   const initialPgn = ref('');
+  const userId = ref(null);
 
   const boardConfig = computed(() => ({
     coordinates: true,
@@ -45,19 +47,33 @@ export const useChessStore = defineStore('chess', () => {
   function connect() {
     if (socket) return;
     socket = io(`http://${window.location.hostname}:3000`);
+    console.log('[CLIENT] Connecting socket...');
+
+    fetchUser().then(() => {
+      if (userId.value) {
+        socket.emit('registerUser', userId.value);
+        console.log('[CLIENT] User registered:', userId.value);
+      }
+    });
 
     socket.on('gameCreated', (data) => {
+      console.log('[CLIENT] gameCreated received:', data);
       gameId.value = data.gameId;
       playerColor.value = data.playerColor;
       gamePhase.value = 'waiting';
     });
 
     socket.on('gameStarted', (gameState) => {
+      console.log('[CLIENT] gameStarted received:', gameState);
       initialPgn.value = gameState.pgn;
       playerColor.value = gameState.playerColor;
       isGameOver.value = gameState.isGameOver;
       gameOverMessage.value = '';
       gamePhase.value = 'playing';
+
+      if (gameState.gameId) {
+        gameId.value = gameState.gameId;
+      }
 
       if (boardAPI) {
         boardAPI.resetBoard();
@@ -65,8 +81,6 @@ export const useChessStore = defineStore('chess', () => {
           orientation: playerColor.value,
           movable: { color: playerColor.value } 
         });
-
-
         const cleaned = sanitizePgn(initialPgn.value);
         if (cleaned) boardAPI.loadPgn(cleaned);
         history.value = boardAPI.getHistory(true);
@@ -74,6 +88,7 @@ export const useChessStore = defineStore('chess', () => {
     });
 
     socket.on('moveMade', (gameState) => {
+      console.log('[CLIENT] moveMade received:', gameState);
       if (boardAPI) {
         const cleaned = sanitizePgn(gameState.pgn);
         if (cleaned) boardAPI.loadPgn(cleaned);
@@ -81,17 +96,20 @@ export const useChessStore = defineStore('chess', () => {
       }
       isGameOver.value = gameState.isGameOver;
     });
-
-    socket.on('boardState', (gameState) => {
-      if (boardAPI) {
-        const cleaned = sanitizePgn(gameState.pgn);
-        if (cleaned) boardAPI.loadPgn(cleaned);
-        history.value = boardAPI.getHistory(true);
-      }
-      isGameOver.value = gameState.isGameOver;
-      gameOverMessage.value = '';
-    });
     
+    socket.on('gameOver', (result) => {
+      console.log('[CLIENT] gameOver received:', result);
+      isGameOver.value = true;
+      
+      if (result === 'white_wins') {
+        gameOverMessage.value = 'Game Over: White wins by checkmate!';
+      } else if (result === 'black_wins') {
+        gameOverMessage.value = 'Game Over: Black wins by checkmate!';
+      } else {
+        gameOverMessage.value = 'Game Over: Draw.';
+      }
+    });
+
     socket.on('error', (msg) => {
       errorMessage.value = msg;
     });
@@ -105,16 +123,29 @@ export const useChessStore = defineStore('chess', () => {
     }
   }
 
+  async function fetchUser() {
+    const { data: { user } } = await supabase.auth.getUser();
+    userId.value = user?.id || null;
+  }
+
   function createGame() {
+    if (!userId.value) {
+      errorMessage.value = 'You must be logged in to create a game.';
+      return;
+    }
     errorMessage.value = '';
-    socket?.emit('createGame');
+    socket?.emit('createGame', userId.value);
   }
 
   function joinGame(id) {
+    if (!userId.value) {
+      errorMessage.value = 'User not logged in';
+      return;
+    }
     if (id) {
       errorMessage.value = '';
-      gameId.value = id.toUpperCase();
-      socket?.emit('joinGame', id.toUpperCase());
+      gameId.value = id;
+      socket?.emit('joinGame', { gameId: id, userId: userId.value });
     }
   }
 
@@ -158,5 +189,6 @@ export const useChessStore = defineStore('chess', () => {
     connect, disconnect, gameOverMessage, setGameOverMessage,
     resetGame, viewStart, viewPrevious, viewNext, viewEnd, gamePhase, 
     gameId, playerColor, createGame, joinGame, errorMessage, isGameOver,
+    fetchUser, userId 
   };
 });

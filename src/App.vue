@@ -17,8 +17,9 @@ function onBoardCreated(boardApi) {
   chessStore.setBoardApi(boardApi);
 }
 
-watch(() => userStore.user, (newUser) => {
+watch(() => userStore.user, async (newUser) => {
   if (newUser) {
+    await chessStore.fetchUser();
     chessStore.connect();
   } else {
     chessStore.disconnect();
