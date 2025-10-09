@@ -15,20 +15,22 @@ export const useUserStore = defineStore('user', () => {
     }
   });
 
-  const signUp = async (email, password) => {
+  const signUp = async (email, password, username) => {
     const { data, error } = await supabase.auth.signUp({
       email: email,
       password: password,
+      options: {
+        data: {
+          username: username,
+        }
+      }
     });
     if (error) throw error;
     return data;
   };
 
   const signIn = async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email,
-      password: password,
-    });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
     return data;
   };
@@ -45,22 +47,11 @@ export const useUserStore = defineStore('user', () => {
   };
 
   const updatePassword = async (newPassword) => {
-    const { data, error } = await supabase.auth.updateUser({
-      password: newPassword,
-    });
+    const { data, error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) throw error;
-
     requiresPasswordUpdate.value = false;
     return data;
   };
 
-  return {
-    user,
-    requiresPasswordUpdate,
-    signUp,
-    signIn,
-    signOut,
-    sendPasswordResetEmail,
-    updatePassword,
-  };
+  return { user, requiresPasswordUpdate, signUp, signIn, signOut, sendPasswordResetEmail, updatePassword };
 });

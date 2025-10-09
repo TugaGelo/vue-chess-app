@@ -1,9 +1,15 @@
 <script setup>
 import { ref } from 'vue';
 import { useChessStore } from '@/stores/chess';
+import { useRouter } from 'vue-router';
 
 const chessStore = useChessStore();
 const gameIdInput = ref('');
+const router = useRouter();
+
+function goToHistory() {
+  router.push('/history');
+}
 </script>
 
 <template>
@@ -17,6 +23,7 @@ const gameIdInput = ref('');
           <input v-model.trim="gameIdInput" @keyup.enter="chessStore.joinGame(gameIdInput)" placeholder="Enter Game ID" />
           <button @click="chessStore.joinGame(gameIdInput)">Join</button>
         </div>
+        <button @click="goToHistory" class="history-button">View Game History</button>
       </div>
       <p v-if="chessStore.gamePhase === 'waiting'" class="game-id-display">
         Waiting for opponent... <br/> Share this code: <strong>{{ chessStore.gameId }}</strong>
@@ -94,5 +101,11 @@ input {
 .error-message { 
   color: #e74c3c; 
   margin-top: 15px; 
+}
+.history-button {
+  background-color: #6c757d;
+}
+.history-button:hover {
+  background-color: #5a6268;
 }
 </style>
