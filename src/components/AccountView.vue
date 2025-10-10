@@ -84,6 +84,10 @@ button {
   font-size: 16px;
   cursor: pointer;
 }
-.error-message { color: #e74c3c; }
-.success-message { color: #27ae60; }
+.error-message { 
+  color: #e74c3c; 
+}
+.success-message { 
+  color: #27ae60; 
+}
 </style>
