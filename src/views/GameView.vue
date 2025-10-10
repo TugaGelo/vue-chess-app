@@ -1,16 +1,21 @@
 <script setup>
 import { ref, watch, nextTick } from 'vue';
-import { useUserStore } from '@/stores/user';
+import { useRouter } from 'vue-router';
 import { useChessStore } from '@/stores/chess';
 import { TheChessboard } from 'vue3-chessboard';
 import 'vue3-chessboard/style.css';
 
-const userStore = useUserStore();
+const router = useRouter();
 const chessStore = useChessStore();
 const historyContainer = ref(null);
 
 function onBoardCreated(boardApi) {
   chessStore.setBoardApi(boardApi);
+}
+
+function backToLobby() {
+  chessStore.disconnect();
+  router.push('/');
 }
 
 watch(() => chessStore.history, () => {
@@ -54,10 +59,11 @@ function handleDraw() {
           <p>You are playing as: <strong>{{ chessStore.playerColor }}</strong></p>
           
           <div v-if="chessStore.material.materialDiff !== 0" class="material-info">
-            Advantage: 
-            <strong :class="chessStore.material.materialDiff > 0 ? 'white-adv' : 'black-adv'">
-              {{ chessStore.material.materialDiff > 0 ? 'White' : 'Black' }} (+{{ Math.abs(chessStore.material.materialDiff) }})
-            </strong>
+            <p> Advantage: 
+              <strong :class="chessStore.material.materialDiff > 0 ? 'white-adv' : 'black-adv'">
+                {{ chessStore.material.materialDiff > 0 ? 'White' : 'Black' }} (+{{ Math.abs(chessStore.material.materialDiff) }})
+              </strong>
+            </p>
           </div>
 
         </div>
@@ -90,7 +96,7 @@ function handleDraw() {
         </div>
         <div class="button-group">
           <button v-if="chessStore.isGameOver" @click="chessStore.resetGame()" class="new-game-button">New Game</button>
-          <button @click="userStore.signOut()" class="logout-button">Logout</button>
+          <button @click="backToLobby" class="lobby-button">Back to Lobby</button>
         </div>
       </div>
     </div>
@@ -173,8 +179,8 @@ tbody tr:nth-child(even) {
 .new-game-button {
   background-color: #007bff;
 }
-.logout-button {
-  background-color: #e74c3c;
+.lobby-button {
+  background-color: #6c757d;
 }
 .playback-controls {
   display: flex;
@@ -193,6 +199,8 @@ tbody tr:nth-child(even) {
   color: #333;
   border-radius: 4px;
   cursor: pointer;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
 }
 .playback-controls button:hover {
   background: #d4b58c;
@@ -238,8 +246,11 @@ tbody tr:nth-child(even) {
   .button-group button {
     flex-basis: calc(50% - 5px);
   }
-  .button-group .logout-button {
+  .lobby-button {
     flex-basis: 100%;
+  }
+  .new-game-button + .lobby-button {
+    flex-basis: calc(50% - 5px);
   }
 }
 </style>
