@@ -4,6 +4,7 @@ import { supabase } from '../supabase';
 
 export const useHistoryStore = defineStore('history', () => {
   const games = ref([]);
+  const currentGame = ref(null);
   const loading = ref(false);
 
   async function fetchGames() {
@@ -20,16 +21,19 @@ export const useHistoryStore = defineStore('history', () => {
 
   async function fetchGameById(id) {
     loading.value = true;
+    currentGame.value = null;
+    
     const { data, error } = await supabase
-      .from('games')
-      .select('pgn, white_username:profiles!games_white_player_id_fkey(username), black_username:profiles!games_black_player_id_fkey(username)')
-      .eq('id', id)
+      .rpc('get_game_by_id', { game_id: id })
       .single();
     
-    if (error) console.error('Error fetching game:', error);
+    if (error) {
+      console.error('Error fetching game:', error);
+    } else {
+      currentGame.value = data;
+    }
     loading.value = false;
-    return data;
   }
 
-  return { games, loading, fetchGames, fetchGameById };
+  return { games, currentGame, loading, fetchGames, fetchGameById };
 });
