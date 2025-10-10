@@ -14,9 +14,9 @@ export const useChessStore = defineStore('chess', () => {
   const gameId = ref('');
   const playerColor = ref('');
   const isGameOver = ref(false);
-
   const initialPgn = ref('');
   const userId = ref(null);
+  const material = ref({ materialWhite: 39, materialBlack: 39, materialDiff: 0 });
 
   const boardConfig = computed(() => ({
     coordinates: true,
@@ -47,12 +47,10 @@ export const useChessStore = defineStore('chess', () => {
   function connect() {
     if (socket) return;
     socket = io(`http://${window.location.hostname}:3000`);
-    console.log('[CLIENT] Connecting socket...');
 
     fetchUser().then(() => {
       if (userId.value) {
         socket.emit('registerUser', userId.value);
-        console.log('[CLIENT] User registered:', userId.value);
       }
     });
 
@@ -64,7 +62,6 @@ export const useChessStore = defineStore('chess', () => {
     });
 
     socket.on('gameStarted', (gameState) => {
-      console.log('[CLIENT] gameStarted received:', gameState);
       initialPgn.value = gameState.pgn;
       playerColor.value = gameState.playerColor;
       isGameOver.value = gameState.isGameOver;
@@ -83,16 +80,33 @@ export const useChessStore = defineStore('chess', () => {
         });
         const cleaned = sanitizePgn(initialPgn.value);
         if (cleaned) boardAPI.loadPgn(cleaned);
-        history.value = boardAPI.getHistory(true);
+        
+        setTimeout(() => {
+          if (boardAPI) {
+            const newMaterial = boardAPI.getMaterialCount();
+            console.log('[DEBUG] Material count on game start:', newMaterial);
+
+            history.value = boardAPI.getHistory(true);
+            material.value = newMaterial;
+          }
+        }, 50);
       }
     });
 
     socket.on('moveMade', (gameState) => {
-      console.log('[CLIENT] moveMade received:', gameState);
       if (boardAPI) {
         const cleaned = sanitizePgn(gameState.pgn);
         if (cleaned) boardAPI.loadPgn(cleaned);
-        history.value = boardAPI.getHistory(true) || [];
+        
+        setTimeout(() => {
+          if (boardAPI) {
+            const newMaterial = boardAPI.getMaterialCount();
+            console.log('[DEBUG] Material count after move:', newMaterial);
+
+            history.value = boardAPI.getHistory(true) || [];
+            material.value = newMaterial;
+          }
+        }, 50);
       }
       isGameOver.value = gameState.isGameOver;
     });
@@ -189,6 +203,6 @@ export const useChessStore = defineStore('chess', () => {
     connect, disconnect, gameOverMessage, setGameOverMessage,
     resetGame, viewStart, viewPrevious, viewNext, viewEnd, gamePhase, 
     gameId, playerColor, createGame, joinGame, errorMessage, isGameOver,
-    fetchUser, userId 
+    fetchUser, userId, material
   };
 });

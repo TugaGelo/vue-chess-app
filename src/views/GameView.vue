@@ -52,7 +52,14 @@ function handleDraw() {
       <div class="history-wrapper">
         <div class="game-info">
           <p>You are playing as: <strong>{{ chessStore.playerColor }}</strong></p>
-          <p>Game ID: <strong>{{ chessStore.gameId }}</strong></p>
+          
+          <div v-if="chessStore.material.materialDiff !== 0" class="material-info">
+            Advantage: 
+            <strong :class="chessStore.material.materialDiff > 0 ? 'white-adv' : 'black-adv'">
+              {{ chessStore.material.materialDiff > 0 ? 'White' : 'Black' }} (+{{ Math.abs(chessStore.material.materialDiff) }})
+            </strong>
+          </div>
+
         </div>
         <div class="playback-controls">
           <button @click="chessStore.viewStart()">&lt;&lt;</button>
@@ -189,6 +196,20 @@ tbody tr:nth-child(even) {
 }
 .playback-controls button:hover {
   background: #d4b58c;
+}
+.material-info {
+  margin-top: 10px;
+  font-size: 0.9em;
+  color: #333;
+}
+.material-info strong {
+  font-weight: bold;
+}
+.white-adv {
+  color: #4CAF50;
+}
+.black-adv {
+  color: #4CAF50;
 }
 @media (max-width: 900px) {
   .main-content {
