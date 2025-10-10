@@ -35,5 +35,18 @@ export const useHistoryStore = defineStore('history', () => {
     loading.value = false;
   }
 
-  return { games, currentGame, loading, fetchGames, fetchGameById };
+  async function deleteGame(id) {
+    const { error } = await supabase
+      .from('games')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting game:', error);
+    } else {
+      games.value = games.value.filter(game => game.id !== id);
+    }
+  }
+
+  return { games, currentGame, loading, fetchGames, fetchGameById, deleteGame };
 });

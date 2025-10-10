@@ -25,6 +25,12 @@ function formatResult(result) {
 function goToReplay(gameId) {
   router.push(`/replay/${gameId}`);
 }
+
+function handleDelete(gameId) {
+  if (confirm('Are you sure you want to delete this game?')) {
+    historyStore.deleteGame(gameId);
+  }
+}
 </script>
 
 <template>
@@ -42,14 +48,14 @@ function goToReplay(gameId) {
           <div class="col-players">Players</div>
           <div class="col-result">Result</div>
           <div class="col-date">Date</div>
-        </div>
+          <div class="col-actions">Actions</div> </div>
 
         <div class="game-list">
           <div v-if="historyStore.games.length === 0" class="no-games">
             No completed games found.
           </div>
-          <div v-for="game in historyStore.games" :key="game.id" class="game-row" @click="goToReplay(game.id)">
-            <div class="col-players">
+          <div v-for="game in historyStore.games" :key="game.id" class="game-row">
+            <div class="col-players players-link" @click="goToReplay(game.id)">
               <div class="player-name">{{ game.white_username || 'N/A' }}</div>
               <div class="player-name">{{ game.black_username || 'N/A' }}</div>
             </div>
@@ -59,6 +65,11 @@ function goToReplay(gameId) {
             </div>
             <div class="col-date">
               <span>{{ formatDate(game.created_at) }}</span>
+            </div>
+            <div class="col-actions">
+              <button @click.stop="handleDelete(game.id)" class="delete-button" title="Delete Game">
+                🗑️
+              </button>
             </div>
           </div>
         </div>
@@ -111,9 +122,12 @@ h1 {
 .loading, .no-games { 
   font-size: 1.1em; 
   padding: 50px; text-align: center; color: #888; }
-.list-header { 
+.list-header, .game-row { 
   display: flex; 
+  align-items: center; 
   padding: 0 15px; 
+}
+.list-header { 
   font-weight: bold; 
   color: #888; 
   font-size: 0.9em; 
@@ -123,22 +137,23 @@ h1 {
   margin-top: 10px; 
 }
 .game-row { 
-  display: flex; 
-  align-items: center; 
   padding: 15px; 
   border-radius: 6px; 
-  cursor: pointer; 
   transition: background-color 0.2s; 
   border-bottom: 1px solid #f0f0f0; 
 }
 .game-row:hover { 
   background-color: #f9f9f9; 
 }
+
 .col-players { 
   flex: 3; 
   display: flex; 
   flex-direction: column; 
   gap: 5px; 
+}
+.players-link {
+  cursor: pointer;
 }
 .col-result { 
   flex: 1; 
@@ -153,6 +168,11 @@ h1 {
   color: #666; 
   font-size: 0.9em; 
 }
+.col-actions {
+  flex: 1;
+  text-align: right;
+}
+
 .player-name { 
   font-size: 1em; 
   color: #333; 
@@ -160,5 +180,19 @@ h1 {
 .result-score { 
   font-weight: bold; 
   font-size: 1.1em; 
+}
+
+.delete-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.2em;
+  padding: 5px;
+  border-radius: 4px;
+  line-height: 1;
+}
+.delete-button:hover {
+  background-color: #ffebee;
+  color: #c62828;
 }
 </style>
