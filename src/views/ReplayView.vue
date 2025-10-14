@@ -14,6 +14,8 @@ const router = useRouter();
 const boardAPI = ref(null);
 const history = ref([]);
 const historyContainer = ref(null);
+const analysisMode = ref(false);
+const savedFen = ref(null);
 
 onMounted(() => {
   historyStore.fetchGameById(props.id);
@@ -21,6 +23,7 @@ onMounted(() => {
 
 function onBoardCreated(api) {
   boardAPI.value = api;
+  console.log("Board API:", api);
 }
 
 watch([() => historyStore.currentGame, boardAPI], ([newGame, api]) => {
@@ -33,7 +36,7 @@ watch([() => historyStore.currentGame, boardAPI], ([newGame, api]) => {
 watch(history, () => {
   nextTick(() => {
     if (historyContainer.value) {
-      // Logic to scroll to the current move can be added here later if desired
+      // Optional: scroll logic
     }
   });
 }, { deep: true });
@@ -51,28 +54,57 @@ const formattedHistory = computed(() => {
   return movePairs;
 });
 
-function viewStart() { 
-  boardAPI.value?.viewStart(); 
+function viewStart() {
+  boardAPI.value?.viewStart();
   history.value = boardAPI.value?.getHistory({ verbose: true }) || [];
 }
-function viewPrevious() { 
-  boardAPI.value?.viewPrevious(); 
+function viewPrevious() {
+  boardAPI.value?.viewPrevious();
   history.value = boardAPI.value?.getHistory({ verbose: true }) || [];
 }
-function viewNext() { 
-  boardAPI.value?.viewNext(); 
+function viewNext() {
+  boardAPI.value?.viewNext();
   history.value = boardAPI.value?.getHistory({ verbose: true }) || [];
 }
-function viewEnd() { 
-  boardAPI.value?.stopViewingHistory(); 
+function viewEnd() {
+  boardAPI.value?.stopViewingHistory();
   history.value = boardAPI.value?.getHistory({ verbose: true }) || [];
+}
+
+function toggleAnalysis() {
+  if (!boardAPI.value) return;
+
+  if (!analysisMode.value) {
+    savedFen.value = boardAPI.value.getFen();
+    boardAPI.value.setConfig({
+      viewOnly: false,
+      movable: {
+        free: true,
+        color: 'both',
+        showDests: true
+      }
+    });
+    analysisMode.value = true;
+  } else {
+    if (savedFen.value) {
+      boardAPI.value.setPosition(savedFen.value);
+    }
+    boardAPI.value.setConfig({
+      viewOnly: true,
+      movable: {
+        free: false,
+        color: 'none'
+      }
+    });
+    analysisMode.value = false;
+  }
 }
 </script>
 
 <template>
   <div class="app-container">
     <div v-if="historyStore.loading" class="loading">Loading Replay...</div>
-    
+
     <div v-else-if="historyStore.currentGame" class="main-content">
       <div class="board-wrapper">
         <TheChessboard
@@ -111,7 +143,12 @@ function viewEnd() {
           </table>
         </div>
         <div class="button-group">
-          <button @click="router.push('/history')" class="back-button">Back to History</button>
+          <button @click="toggleAnalysis" class="analysis-button">
+            {{ analysisMode ? 'Exit Analysis' : 'Enter Analysis' }}
+          </button>
+          <button @click="router.push('/history')" class="back-button">
+            Back to History
+          </button>
         </div>
       </div>
     </div>
@@ -124,111 +161,120 @@ function viewEnd() {
 </template>
 
 <style scoped>
-.app-container { 
-  text-align: center; 
-  padding: 10px; 
-  color: #333; 
+.app-container {
+  text-align: center;
+  padding: 10px;
+  color: #333;
 }
-.main-content { 
-  display: flex; 
-  justify-content: center; 
-  gap: 5rem; 
-  flex-wrap: wrap; 
-  margin-top: 1rem; 
+.main-content {
+  display: flex;
+  justify-content: center;
+  gap: 5rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
 }
-.board-wrapper { 
-  width: 70%; 
-  max-width: 85vh; 
-  flex-shrink: 0; 
+.board-wrapper {
+  width: 70%;
+  max-width: 85vh;
+  flex-shrink: 0;
 }
-.history-wrapper { 
-  width: 30%; 
-  max-width: 350px; 
-  display: flex; 
-  flex-direction: column; 
-  height: 85vh; 
-  background: #f0d9b5; 
-  border-radius: 8px; 
-  padding: 15px; 
-  margin-top: 1rem; 
-  box-sizing: border-box; 
+.history-wrapper {
+  width: 30%;
+  max-width: 350px;
+  display: flex;
+  flex-direction: column;
+  height: 85vh;
+  background: #f0d9b5;
+  border-radius: 8px;
+  padding: 15px;
+  margin-top: 1rem;
+  box-sizing: border-box;
 }
-.game-info { 
-  padding-bottom: 10px; 
-  border-bottom: 2px solid #b58863; 
-  margin-bottom: 10px; 
-  text-align: left; 
+.game-info {
+  padding-bottom: 10px;
+  border-bottom: 2px solid #b58863;
+  margin-bottom: 10px;
+  text-align: left;
 }
-.game-info p { 
-  margin: 5px 0; 
-  font-size: 1.1em; 
+.game-info p {
+  margin: 5px 0;
+  font-size: 1.1em;
 }
-.history-content-scroll { 
-  flex-grow: 1; 
-  overflow-y: auto; 
-  margin-bottom: 10px; 
+.history-content-scroll {
+  flex-grow: 1;
+  overflow-y: auto;
+  margin-bottom: 10px;
 }
-table { 
-  width: 100%; 
-  border-collapse: collapse; 
+table {
+  width: 100%;
+  border-collapse: collapse;
 }
-th, td { 
-  padding: 8px 12px; 
-  text-align: center; 
+th, td {
+  padding: 8px 12px;
+  text-align: center;
 }
-thead { 
-  background-color: #b58863; 
-  color: white; 
-  position: sticky; 
-  top: 0; 
-  z-index: 1; 
+thead {
+  background-color: #b58863;
+  color: white;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
-tbody tr:nth-child(even) { 
-  background-color: #f0d9b5; 
+tbody tr:nth-child(even) {
+  background-color: #f0d9b5;
 }
-.button-group { 
-  display: flex; 
-  gap: 10px; 
-  flex-shrink: 0; 
-  margin-top: auto; 
+.button-group {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+  margin-top: auto;
 }
-.button-group button { 
-  flex: 1; 
+.button-group button {
+  padding: 10px 20px;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 4px;
+  border: none;
+  color: white;
+  font-weight: bold;
 }
-.back-button { 
-  padding: 10px 20px; 
-  font-size: 16px; 
-  cursor: pointer; 
-  border-radius: 4px; 
-  border: none; 
-  background-color: #6c757d; 
-  color: white; 
+.analysis-button {
+  background-color: #007bff;
 }
-.playback-controls { 
-  display: flex; 
-  justify-content: space-between; 
-  margin-bottom: 1rem; 
-  gap: 10px; 
+.analysis-button:hover {
+  background-color: #0056b3;
 }
-.playback-controls button { 
-  flex: 1; 
-  font-family: monospace; 
-  font-size: 1.5em; 
-  font-weight: bold; 
-  padding: 10px; 
-  border: 1px solid #b58863; 
-  background: #e3c196; 
-  color: #333; 
-  border-radius: 4px; 
-  cursor: pointer; 
+.back-button {
+  background-color: #6c757d;
 }
-.playback-controls button:hover { 
-  background: #d4b58c; 
+.back-button:hover {
+  background-color: #5a6268;
 }
-.loading, .no-games { 
-  color: white; 
-  font-size: 1.5em; 
-  padding-top: 50px; 
-  text-align: center; 
+.playback-controls {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  gap: 10px;
+}
+.playback-controls button {
+  flex: 1;
+  font-family: monospace;
+  font-size: 1.5em;
+  font-weight: bold;
+  padding: 10px;
+  border: 1px solid #b58863;
+  background: #e3c196;
+  color: #333;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.playback-controls button:hover {
+  background: #d4b58c;
+}
+.loading, .no-games {
+  color: white;
+  font-size: 1.5em;
+  padding-top: 50px;
+  text-align: center;
 }
 </style>
