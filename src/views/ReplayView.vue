@@ -16,6 +16,7 @@ const history = ref([]);
 const historyContainer = ref(null);
 const analysisMode = ref(false);
 const savedFen = ref(null);
+const saving = ref(false);
 
 onMounted(() => {
   historyStore.fetchGameById(props.id);
@@ -23,23 +24,31 @@ onMounted(() => {
 
 function onBoardCreated(api) {
   boardAPI.value = api;
-  console.log("Board API:", api);
+  console.log('Board API:', api);
+
+  if (historyStore.currentGame?.pgn) {
+    api.loadPgn(historyStore.currentGame.pgn);
+    history.value = api.getHistory({ verbose: true }) || [];
+  }
 }
 
-watch([() => historyStore.currentGame, boardAPI], ([newGame, api]) => {
-  if (newGame && api) {
-    api.loadPgn(newGame.pgn);
-    history.value = api.getHistory({ verbose: true }) || [];
+watch(() => boardAPI.value?.getHistory({ verbose: true }), (newHistory) => {
+  if (newHistory) {
+    history.value = newHistory;
   }
 });
 
-watch(history, () => {
-  nextTick(() => {
-    if (historyContainer.value) {
-      // Optional: scroll logic
-    }
-  });
-}, { deep: true });
+watch(
+  history,
+  () => {
+    nextTick(() => {
+      if (historyContainer.value) {
+        // optional scroll logic
+      }
+    });
+  },
+  { deep: true }
+);
 
 const formattedHistory = computed(() => {
   const movePairs = [];
@@ -81,8 +90,8 @@ function toggleAnalysis() {
       movable: {
         free: true,
         color: 'both',
-        showDests: true
-      }
+        showDests: true,
+      },
     });
     analysisMode.value = true;
   } else {
@@ -93,10 +102,49 @@ function toggleAnalysis() {
       viewOnly: true,
       movable: {
         free: false,
-        color: 'none'
-      }
+        color: 'none',
+      },
     });
     analysisMode.value = false;
+  }
+}
+
+async function saveVariation() {
+  if (!boardAPI.value) {
+    alert('Board not ready.');
+    return;
+  }
+
+  const resolvedGameId = historyStore.currentGame?.id ?? props.id;
+  if (!resolvedGameId) {
+    alert('Game ID not available — cannot save variation.');
+    return;
+  }
+
+  try {
+    saving.value = true;
+
+    const pgn = boardAPI.value.getPgn();
+    if (!pgn) {
+      alert('No PGN found on the board to save.');
+      return;
+    }
+
+    const nameInput = window.prompt('Name your variation', `Variation ${new Date().toISOString()}`);
+    const variation = {
+      name: nameInput?.trim() || `Variation ${Date.now()}`,
+      pgn,
+      created_at: new Date().toISOString(),
+    };
+
+    await historyStore.updateGameVariations(resolvedGameId, variation);
+
+    alert('Variation saved!');
+  } catch (err) {
+    console.error('Error saving variation:', err);
+    alert('Failed to save variation. See console for details.');
+  } finally {
+    saving.value = false;
   }
 }
 </script>
@@ -145,6 +193,9 @@ function toggleAnalysis() {
         <div class="button-group">
           <button @click="toggleAnalysis" class="analysis-button">
             {{ analysisMode ? 'Exit Analysis' : 'Enter Analysis' }}
+          </button>
+          <button v-if="analysisMode" @click="saveVariation" :disabled="saving" class="save-button">
+            {{ saving ? 'Saving...' : 'Save Variation' }}
           </button>
           <button @click="router.push('/history')" class="back-button">
             Back to History
@@ -228,6 +279,7 @@ tbody tr:nth-child(even) {
   gap: 10px;
   flex-shrink: 0;
   margin-top: auto;
+  flex-wrap: wrap;
 }
 .button-group button {
   padding: 10px 20px;
@@ -243,6 +295,12 @@ tbody tr:nth-child(even) {
 }
 .analysis-button:hover {
   background-color: #0056b3;
+}
+.save-button {
+  background-color: #28a745;
+}
+.save-button:hover {
+  background-color: #218838;
 }
 .back-button {
   background-color: #6c757d;

@@ -22,11 +22,11 @@ export const useHistoryStore = defineStore('history', () => {
   async function fetchGameById(id) {
     loading.value = true;
     currentGame.value = null;
-    
+
     const { data, error } = await supabase
       .rpc('get_game_by_id', { game_id: id })
       .single();
-    
+
     if (error) {
       console.error('Error fetching game:', error);
     } else {
@@ -48,5 +48,67 @@ export const useHistoryStore = defineStore('history', () => {
     }
   }
 
-  return { games, currentGame, loading, fetchGames, fetchGameById, deleteGame };
+  async function updateGameVariations(gameId, newVariation) {
+    try {
+      if (!newVariation?.pgn) {
+        throw new Error("Variation missing PGN — cannot save.");
+      }
+
+      // fetch existing variations
+      const { data: gameData, error: fetchErr } = await supabase
+        .from('games')
+        .select('variations')
+        .eq('id', gameId)
+        .single();
+
+      if (fetchErr) {
+        console.error('Error fetching game for variations:', fetchErr);
+        throw fetchErr;
+      }
+
+      const currentVariations = gameData?.variations || [];
+      const updatedArray = [...currentVariations, newVariation];
+
+      // update with new array
+      const { data, error: updateErr } = await supabase
+        .from('games')
+        .update({ variations: updatedArray })
+        .eq('id', gameId)
+        .select();
+
+      if (updateErr) {
+        console.error('Error updating variations:', updateErr);
+        throw updateErr;
+      }
+
+      if (!data || data.length === 0) {
+        throw new Error(`No rows updated for game id ${gameId}`);
+      }
+
+      const updatedGame = data[0];
+
+      // sync local store
+      if (currentGame.value && currentGame.value.id === gameId) {
+        currentGame.value.variations = updatedGame.variations;
+      }
+
+      console.log("✅ Variation saved with PGN:", newVariation.pgn);
+
+      return updatedGame.variations;
+    } catch (err) {
+      console.error('Failed to update variations in DB:', err);
+      throw err;
+    }
+  }
+
+
+  return {
+    games,
+    currentGame,
+    loading,
+    fetchGames,
+    fetchGameById,
+    deleteGame,
+    updateGameVariations
+  };
 });
