@@ -48,13 +48,13 @@ export const useHistoryStore = defineStore('history', () => {
     }
   }
 
-  async function updateGameVariations(gameId, newVariation) {
+  async function saveAnalysis(gameId, newVariation) {
     try {
       if (!newVariation?.pgn) {
         throw new Error("Variation missing PGN — cannot save.");
       }
 
-      // fetch existing variations
+      // Fetch existing variations
       const { data: gameData, error: fetchErr } = await supabase
         .from('games')
         .select('variations')
@@ -69,38 +69,29 @@ export const useHistoryStore = defineStore('history', () => {
       const currentVariations = gameData?.variations || [];
       const updatedArray = [...currentVariations, newVariation];
 
-      // update with new array
-      const { data, error: updateErr } = await supabase
+      // Update with new array
+      const { error: updateErr } = await supabase
         .from('games')
         .update({ variations: updatedArray })
-        .eq('id', gameId)
-        .select();
+        .eq('id', gameId);
 
       if (updateErr) {
         console.error('Error updating variations:', updateErr);
         throw updateErr;
       }
 
-      if (!data || data.length === 0) {
-        throw new Error(`No rows updated for game id ${gameId}`);
-      }
-
-      const updatedGame = data[0];
-
-      // sync local store
+      // Sync local store to instantly update the UI
       if (currentGame.value && currentGame.value.id === gameId) {
-        currentGame.value.variations = updatedGame.variations;
+        currentGame.value.variations = updatedArray;
       }
 
       console.log("✅ Variation saved with PGN:", newVariation.pgn);
 
-      return updatedGame.variations;
     } catch (err) {
       console.error('Failed to update variations in DB:', err);
       throw err;
     }
   }
-
 
   return {
     games,
@@ -109,6 +100,6 @@ export const useHistoryStore = defineStore('history', () => {
     fetchGames,
     fetchGameById,
     deleteGame,
-    updateGameVariations
+    saveAnalysis
   };
 });

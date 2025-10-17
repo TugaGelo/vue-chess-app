@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch, nextTick, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useHistoryStore } from '@/stores/history';
 import { TheChessboard } from 'vue3-chessboard';
 import { useRouter } from 'vue-router';
@@ -12,43 +12,117 @@ const props = defineProps({
 const historyStore = useHistoryStore();
 const router = useRouter();
 const boardAPI = ref(null);
+const isAnalysisMode = ref(false);
+const analysisStartPly = ref(0);
+const currentPly = ref(0);
+const saving = ref(false);
+
 const history = ref([]);
 const historyContainer = ref(null);
-const analysisMode = ref(false);
-const savedFen = ref(null);
-const saving = ref(false);
 
 onMounted(() => {
   historyStore.fetchGameById(props.id);
 });
 
-function onBoardCreated(api) {
-  boardAPI.value = api;
-  console.log('Board API:', api);
-
-  if (historyStore.currentGame?.pgn) {
-    api.loadPgn(historyStore.currentGame.pgn);
-    history.value = api.getHistory({ verbose: true }) || [];
-  }
-}
-
-watch(() => boardAPI.value?.getHistory({ verbose: true }), (newHistory) => {
-  if (newHistory) {
-    history.value = newHistory;
+watch([() => historyStore.currentGame, boardAPI, () => isAnalysisMode.value], ([newGame, api, isAnalyzing]) => {
+  if (newGame && api && !isAnalyzing) {
+    api.loadPgn(newGame.pgn);
+    api.stopViewingHistory();
+    currentPly.value = api.getCurrentPlyNumber();
+    history.value = api.getHistory({ verbose: true });
   }
 });
 
-watch(
-  history,
-  () => {
-    nextTick(() => {
-      if (historyContainer.value) {
-        // optional scroll logic
-      }
-    });
-  },
-  { deep: true }
-);
+
+function onBoardCreated(api) {
+  boardAPI.value = api;
+}
+
+function toggleAnalysisMode() {
+  if (boardAPI.value) {
+    if (!isAnalysisMode.value) {
+      analysisStartPly.value = currentPly.value;
+    }
+    isAnalysisMode.value = !isAnalysisMode.value;
+  }
+}
+
+const boardConfig = computed(() => {
+  if (isAnalysisMode.value) {
+    return {
+      pgn: historyStore.currentGame?.pgn,
+      ply: analysisStartPly.value,
+      coordinates: true,
+      movable: { free: false, color: 'both' },
+    };
+  } else {
+    return {
+      pgn: historyStore.currentGame?.pgn,
+      coordinates: true,
+      viewOnly: true,
+    };
+  }
+});
+
+async function saveVariation() {
+  if (!boardAPI.value) return;
+  const resolvedGameId = historyStore.currentGame?.id ?? props.id;
+  if (!resolvedGameId) return;
+  try {
+    saving.value = true;
+    const newPgn = boardAPI.value.getPgn();
+    if (!newPgn) {
+      alert('Could not get PGN from board.');
+      return;
+    }
+    const nameInput = window.prompt("Name your variation:", `Analysis ${new Date().toLocaleTimeString()}`);
+    if (!nameInput) {
+      saving.value = false;
+      return;
+    }
+    const variation = {
+      name: nameInput.trim() || `Variation ${Date.now()}`,
+      pgn: newPgn,
+      created_at: new Date().toISOString(),
+    };
+    await historyStore.saveAnalysis(resolvedGameId, variation);
+    isAnalysisMode.value = false;
+  } catch (err) {
+    console.error('Error saving variation:', err);
+    alert('Failed to save variation.');
+  } finally {
+    saving.value = false;
+  }
+}
+
+function loadVariation(pgn) {
+  if (boardAPI.value) {
+    boardAPI.value.loadPgn(pgn);
+    currentPly.value = boardAPI.value.getCurrentPlyNumber();
+    history.value = boardAPI.value.getHistory({ verbose: true });
+  }
+}
+
+function playViewStart() {
+  boardAPI.value?.viewStart();
+  currentPly.value = 0;
+  history.value = boardAPI.value?.getHistory({ verbose: true }) || [];
+}
+function playViewPrevious() {
+  boardAPI.value?.viewPrevious();
+  if (currentPly.value > 0) currentPly.value--;
+  history.value = boardAPI.value?.getHistory({ verbose: true }) || [];
+}
+function playViewNext() {
+  boardAPI.value?.viewNext();
+  currentPly.value++;
+  history.value = boardAPI.value?.getHistory({ verbose: true }) || [];
+}
+function playViewEnd() {
+  boardAPI.value?.stopViewingHistory();
+  currentPly.value = boardAPI.value?.getCurrentPlyNumber() || 0;
+  history.value = boardAPI.value?.getHistory({ verbose: true }) || [];
+}
 
 const formattedHistory = computed(() => {
   const movePairs = [];
@@ -62,91 +136,6 @@ const formattedHistory = computed(() => {
   }
   return movePairs;
 });
-
-function viewStart() {
-  boardAPI.value?.viewStart();
-  history.value = boardAPI.value?.getHistory({ verbose: true }) || [];
-}
-function viewPrevious() {
-  boardAPI.value?.viewPrevious();
-  history.value = boardAPI.value?.getHistory({ verbose: true }) || [];
-}
-function viewNext() {
-  boardAPI.value?.viewNext();
-  history.value = boardAPI.value?.getHistory({ verbose: true }) || [];
-}
-function viewEnd() {
-  boardAPI.value?.stopViewingHistory();
-  history.value = boardAPI.value?.getHistory({ verbose: true }) || [];
-}
-
-function toggleAnalysis() {
-  if (!boardAPI.value) return;
-
-  if (!analysisMode.value) {
-    savedFen.value = boardAPI.value.getFen();
-    boardAPI.value.setConfig({
-      viewOnly: false,
-      movable: {
-        free: true,
-        color: 'both',
-        showDests: true,
-      },
-    });
-    analysisMode.value = true;
-  } else {
-    if (savedFen.value) {
-      boardAPI.value.setPosition(savedFen.value);
-    }
-    boardAPI.value.setConfig({
-      viewOnly: true,
-      movable: {
-        free: false,
-        color: 'none',
-      },
-    });
-    analysisMode.value = false;
-  }
-}
-
-async function saveVariation() {
-  if (!boardAPI.value) {
-    alert('Board not ready.');
-    return;
-  }
-
-  const resolvedGameId = historyStore.currentGame?.id ?? props.id;
-  if (!resolvedGameId) {
-    alert('Game ID not available — cannot save variation.');
-    return;
-  }
-
-  try {
-    saving.value = true;
-
-    const pgn = boardAPI.value.getPgn();
-    if (!pgn) {
-      alert('No PGN found on the board to save.');
-      return;
-    }
-
-    const nameInput = window.prompt('Name your variation', `Variation ${new Date().toISOString()}`);
-    const variation = {
-      name: nameInput?.trim() || `Variation ${Date.now()}`,
-      pgn,
-      created_at: new Date().toISOString(),
-    };
-
-    await historyStore.updateGameVariations(resolvedGameId, variation);
-
-    alert('Variation saved!');
-  } catch (err) {
-    console.error('Error saving variation:', err);
-    alert('Failed to save variation. See console for details.');
-  } finally {
-    saving.value = false;
-  }
-}
 </script>
 
 <template>
@@ -156,7 +145,8 @@ async function saveVariation() {
     <div v-else-if="historyStore.currentGame" class="main-content">
       <div class="board-wrapper">
         <TheChessboard
-          :board-config="{ viewOnly: true, coordinates: true }"
+          :key="isAnalysisMode"
+          :board-config="boardConfig"
           @board-created="onBoardCreated"
         />
       </div>
@@ -166,11 +156,22 @@ async function saveVariation() {
           <p>Black: <strong>{{ historyStore.currentGame.black_username || 'N/A' }}</strong></p>
           <p>Result: <strong>{{ historyStore.currentGame.result }}</strong></p>
         </div>
-        <div class="playback-controls">
-          <button @click="viewStart()">&lt;&lt;</button>
-          <button @click="viewPrevious()">&lt;</button>
-          <button @click="viewNext()">&gt;</button>
-          <button @click="viewEnd()">&gt;&gt;</button>
+
+        <div v-if="!isAnalysisMode" class="playback-controls">
+          <button @click="playViewStart()">&lt;&lt;</button>
+          <button @click="playViewPrevious()">&lt;</button>
+          <button @click="playViewNext()">&gt;</button>
+          <button @click="playViewEnd()">&gt;&gt;</button>
+        </div>
+
+        <div class="variations-menu" v-if="historyStore.currentGame.analysis_pgns?.length > 0 && !isAnalysisMode">
+          <label for="variations">View Analysis:</label>
+          <select id="variations" @change="loadVariation($event.target.value)">
+            <option :value="historyStore.currentGame.pgn">Main Game</option>
+            <option v-for="(variation, index) in historyStore.currentGame.analysis_pgns" :key="index" :value="variation.pgn">
+              {{ variation.name }}
+            </option>
+          </select>
         </div>
         <div class="history-content-scroll" ref="historyContainer">
           <table>
@@ -191,15 +192,13 @@ async function saveVariation() {
           </table>
         </div>
         <div class="button-group">
-          <button @click="toggleAnalysis" class="analysis-button">
-            {{ analysisMode ? 'Exit Analysis' : 'Enter Analysis' }}
+          <button @click="toggleAnalysisMode" class="analysis-button">
+            {{ isAnalysisMode ? 'Exit Analysis' : 'Analyze Game' }}
           </button>
-          <button v-if="analysisMode" @click="saveVariation" :disabled="saving" class="save-button">
+          <button v-if="isAnalysisMode" @click="saveVariation" :disabled="saving" class="save-button">
             {{ saving ? 'Saving...' : 'Save Variation' }}
           </button>
-          <button @click="router.push('/history')" class="back-button">
-            Back to History
-          </button>
+          <button @click="router.push('/history')" class="back-button">Back to History</button>
         </div>
       </div>
     </div>
@@ -334,5 +333,14 @@ tbody tr:nth-child(even) {
   font-size: 1.5em;
   padding-top: 50px;
   text-align: center;
+}
+.variations-menu {
+  margin-bottom: 1rem;
+}
+.variations-menu label {
+  font-weight: bold; margin-right: 10px;
+}
+.variations-menu select {
+  width: 100%; padding: 8px; border-radius: 4px; font-size: 1em;
 }
 </style>
