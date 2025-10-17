@@ -54,7 +54,6 @@ export const useHistoryStore = defineStore('history', () => {
         throw new Error("Variation missing PGN — cannot save.");
       }
 
-      // Fetch existing variations
       const { data: gameData, error: fetchErr } = await supabase
         .from('games')
         .select('variations')
@@ -69,7 +68,6 @@ export const useHistoryStore = defineStore('history', () => {
       const currentVariations = gameData?.variations || [];
       const updatedArray = [...currentVariations, newVariation];
 
-      // Update with new array
       const { error: updateErr } = await supabase
         .from('games')
         .update({ variations: updatedArray })
@@ -80,7 +78,6 @@ export const useHistoryStore = defineStore('history', () => {
         throw updateErr;
       }
 
-      // Sync local store to instantly update the UI
       if (currentGame.value && currentGame.value.id === gameId) {
         currentGame.value.variations = updatedArray;
       }

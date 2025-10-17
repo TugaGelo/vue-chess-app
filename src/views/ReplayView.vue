@@ -1,8 +1,9 @@
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, computed, watch, } from 'vue';
 import { useHistoryStore } from '@/stores/history';
 import { TheChessboard } from 'vue3-chessboard';
 import { useRouter } from 'vue-router';
+import { Chess } from 'chess.js';
 import 'vue3-chessboard/style.css';
 
 const props = defineProps({
@@ -19,23 +20,53 @@ const saving = ref(false);
 
 const history = ref([]);
 const historyContainer = ref(null);
+const analysisMoves = ref([]);
+const isBoardLoading = ref(false);
 
 onMounted(() => {
   historyStore.fetchGameById(props.id);
 });
 
 watch([() => historyStore.currentGame, boardAPI, () => isAnalysisMode.value], ([newGame, api, isAnalyzing]) => {
-  if (newGame && api && !isAnalyzing) {
-    api.loadPgn(newGame.pgn);
-    api.stopViewingHistory();
-    currentPly.value = api.getCurrentPlyNumber();
-    history.value = api.getHistory({ verbose: true });
+  if (newGame) {
+    if (!newGame.variations) {
+      newGame.variations = [];
+    }
+    if (api && !isAnalyzing) {
+      api.loadPgn(newGame.pgn);
+      api.stopViewingHistory();
+      currentPly.value = api.getCurrentPlyNumber();
+      history.value = api.getHistory({ verbose: true });
+    }
   }
 });
 
-
 function onBoardCreated(api) {
   boardAPI.value = api;
+
+  if (isAnalysisMode.value) {
+    analysisMoves.value = [];
+    isBoardLoading.value = true;
+
+    if (historyStore.currentGame?.pgn && analysisStartPly.value > 0) {
+      const chess = new Chess();
+      chess.loadPgn(historyStore.currentGame.pgn);
+      const movesToPlay = chess.history().slice(0, analysisStartPly.value);
+
+      api.setConfig({ animation: { duration: 0 } });
+
+      for (const move of movesToPlay) {
+        api.move(move);
+      }
+    }
+
+    api.setConfig({
+      animation: { duration: 200 },
+      movable: { free: false, color: 'both', showDests: true },
+    });
+
+    isBoardLoading.value = false;
+  }
 }
 
 function toggleAnalysisMode() {
@@ -50,8 +81,6 @@ function toggleAnalysisMode() {
 const boardConfig = computed(() => {
   if (isAnalysisMode.value) {
     return {
-      pgn: historyStore.currentGame?.pgn,
-      ply: analysisStartPly.value,
       coordinates: true,
       movable: { free: false, color: 'both' },
     };
@@ -64,32 +93,59 @@ const boardConfig = computed(() => {
   }
 });
 
+function handleAnalysisMove(move) {
+  if (isAnalysisMode.value && !isBoardLoading.value) {
+    analysisMoves.value.push(move.san);
+  }
+}
+
 async function saveVariation() {
   if (!boardAPI.value) return;
   const resolvedGameId = historyStore.currentGame?.id ?? props.id;
   if (!resolvedGameId) return;
+
   try {
     saving.value = true;
-    const newPgn = boardAPI.value.getPgn();
-    if (!newPgn) {
-      alert('Could not get PGN from board.');
+    const tempChess = new Chess();
+    tempChess.loadPgn(historyStore.currentGame.pgn);
+    const allMoves = tempChess.history();
+    const movesToReplay = allMoves.slice(0, analysisStartPly.value);
+    const chess = new Chess();
+    movesToReplay.forEach(move => chess.move(move));
+
+    analysisMoves.value.forEach(move => {
+      if (chess.move(move) === null) {
+        throw new Error(`Invalid move: ${move}`);
+      }
+    });
+
+    const correctPgn = chess.pgn();
+
+    if (analysisMoves.value.length === 0) {
+      alert('No new moves to save.');
+      saving.value = false;
       return;
     }
+
     const nameInput = window.prompt("Name your variation:", `Analysis ${new Date().toLocaleTimeString()}`);
     if (!nameInput) {
       saving.value = false;
       return;
     }
+
     const variation = {
       name: nameInput.trim() || `Variation ${Date.now()}`,
-      pgn: newPgn,
+      pgn: correctPgn,
       created_at: new Date().toISOString(),
     };
+
     await historyStore.saveAnalysis(resolvedGameId, variation);
+
     isAnalysisMode.value = false;
+
   } catch (err) {
     console.error('Error saving variation:', err);
-    alert('Failed to save variation.');
+    alert(`Failed to save variation: ${err.message}`);
   } finally {
     saving.value = false;
   }
@@ -148,6 +204,7 @@ const formattedHistory = computed(() => {
           :key="isAnalysisMode"
           :board-config="boardConfig"
           @board-created="onBoardCreated"
+          @move="handleAnalysisMove"
         />
       </div>
       <div class="history-wrapper">
@@ -164,15 +221,16 @@ const formattedHistory = computed(() => {
           <button @click="playViewEnd()">&gt;&gt;</button>
         </div>
 
-        <div class="variations-menu" v-if="historyStore.currentGame.analysis_pgns?.length > 0 && !isAnalysisMode">
+        <div class="variations-menu" v-if="historyStore.currentGame.variations?.length > 0">
           <label for="variations">View Analysis:</label>
           <select id="variations" @change="loadVariation($event.target.value)">
             <option :value="historyStore.currentGame.pgn">Main Game</option>
-            <option v-for="(variation, index) in historyStore.currentGame.analysis_pgns" :key="index" :value="variation.pgn">
+            <option v-for="(variation, index) in historyStore.currentGame.variations" :key="index" :value="variation.pgn">
               {{ variation.name }}
             </option>
           </select>
         </div>
+
         <div class="history-content-scroll" ref="historyContainer">
           <table>
             <thead>
@@ -338,9 +396,26 @@ tbody tr:nth-child(even) {
   margin-bottom: 1rem;
 }
 .variations-menu label {
-  font-weight: bold; margin-right: 10px;
+  font-weight: bold;
+  font-size: 1.1em;
+  color: #333;
+  margin-bottom: 8px;
+  display: block;
+  text-align: left;
 }
 .variations-menu select {
-  width: 100%; padding: 8px; border-radius: 4px; font-size: 1em;
+  width: 100%;
+  padding: 10px;
+  font-size: 1em;
+  font-weight: bold;
+  color: #333;
+  background: #e3c196;
+  border: 1px solid #b58863;
+  border-radius: 4px;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+.variations-menu select:hover {
+  background: #d4b58c;
 }
 </style>
