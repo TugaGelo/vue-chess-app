@@ -57,9 +57,9 @@ function handleDraw() {
       <div class="history-wrapper">
         <div class="game-info">
           <p>You are playing as: <strong>{{ chessStore.playerColor }}</strong></p>
-          
+
           <div v-if="chessStore.material.materialDiff !== 0" class="material-info">
-            <p> Advantage: 
+            <p> Advantage:
               <strong :class="chessStore.material.materialDiff > 0 ? 'white-adv' : 'black-adv'">
                 {{ chessStore.material.materialDiff > 0 ? 'White' : 'Black' }} (+{{ Math.abs(chessStore.material.materialDiff) }})
               </strong>
@@ -104,32 +104,32 @@ function handleDraw() {
 </template>
 
 <style>
-.app-container { 
-  text-align: center; 
-  padding: 10px; 
+.app-container {
+  text-align: center;
+  padding: 10px;
 }
-.main-content { 
-  display: flex; 
-  justify-content: center; 
-  gap: 5rem; 
-  flex-wrap: wrap;
-  margin-top: 1rem;
+.main-content {
+  display: flex;
+  justify-content: center;
+  gap: 4rem;
+  align-items: flex-start;
+  margin-top: 1.5rem;
 }
-.board-wrapper { 
-  width: 70%; 
-  max-width: 85vh; 
+.board-wrapper {
+  width: 85vh;
+  height: 85vh;
+  max-width: 85vh;
   flex-shrink: 0;
 }
-.history-wrapper { 
-  width: 30%; 
-  max-width: 350px; 
-  display: flex; 
+.history-wrapper {
+  width: 100%;
+  max-width: 30rem;
+  height: 89.5vh;
+  display: flex;
   flex-direction: column;
-  height: 85vh; 
   background-color: #f0d9b5;
   border-radius: 5px;
   padding: 15px;
-  margin-top: 1rem;
   box-sizing: border-box;
 }
 .history-content-scroll {
@@ -137,23 +137,23 @@ function handleDraw() {
   overflow-y: auto;
   margin-bottom: 10px;
 }
-table { 
-  width: 100%; 
-  border-collapse: collapse; 
+table {
+  width: 100%;
+  border-collapse: collapse;
 }
-th, td { 
-  padding: 8px 12px; 
-  text-align: center; 
+th, td {
+  padding: 8px 12px;
+  text-align: center;
 }
-thead { 
-  background-color: #b58863; 
-  color: white; 
-  position: sticky; 
-  top: 0; 
+thead {
+  background-color: #b58863;
+  color: white;
+  position: sticky;
+  top: 0;
   z-index: 1;
 }
-tbody tr:nth-child(even) { 
-  background-color: #e3c196; 
+tbody tr:nth-child(even) {
+  background-color: #e3c196;
 }
 .game-over-message {
   padding: 15px;
@@ -221,14 +221,14 @@ tbody tr:nth-child(even) {
 }
 @media (max-width: 900px) {
   .main-content {
-    flex-direction: column; 
-    align-items: center;   
-    gap: 0px;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 0;
   }
   .board-wrapper {
     width: 95%;
     max-width: 95vw;
-    height: 95vw;
   }
   .history-wrapper {
     width: 95%;

@@ -287,25 +287,25 @@ const formattedHistory = computed(() => {
 .main-content {
   display: flex;
   justify-content: center;
-  gap: 5rem;
-  flex-wrap: wrap;
+  gap: 4rem;
+  align-items: flex-start;
   margin-top: 1rem;
 }
 .board-wrapper {
-  width: 70%;
+  width: 85vh;
+  height: 85vh;
   max-width: 85vh;
   flex-shrink: 0;
 }
 .history-wrapper {
-  width: 30%;
-  max-width: 350px;
+  width: 100%;
+  max-width: 30rem;
+  height: 89.5vh;
   display: flex;
   flex-direction: column;
-  height: 85vh;
-  background: #f0d9b5;
-  border-radius: 8px;
+  background-color: #f0d9b5;
+  border-radius: 5px;
   padding: 15px;
-  margin-top: 1rem;
   box-sizing: border-box;
 }
 .game-info {
