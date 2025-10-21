@@ -22,6 +22,7 @@ const history = ref([]);
 const historyContainer = ref(null);
 const analysisMoves = ref([]);
 const isBoardLoading = ref(false);
+const currentlyLoadedPgn = ref('');
 
 onMounted(() => {
   historyStore.fetchGameById(props.id);
@@ -34,6 +35,7 @@ watch([() => historyStore.currentGame, boardAPI, () => isAnalysisMode.value], ([
     }
     if (api && !isAnalyzing) {
       api.loadPgn(newGame.pgn);
+      currentlyLoadedPgn.value = newGame.pgn;
       api.stopViewingHistory();
       currentPly.value = api.getCurrentPlyNumber();
       history.value = api.getHistory({ verbose: true });
@@ -154,6 +156,7 @@ async function saveVariation() {
 function loadVariation(pgn) {
   if (boardAPI.value) {
     boardAPI.value.loadPgn(pgn);
+    currentlyLoadedPgn.value = pgn;
     currentPly.value = boardAPI.value.getCurrentPlyNumber();
     history.value = boardAPI.value.getHistory({ verbose: true });
   }
@@ -164,16 +167,19 @@ function playViewStart() {
   currentPly.value = 0;
   history.value = boardAPI.value?.getHistory({ verbose: true }) || [];
 }
+
 function playViewPrevious() {
   boardAPI.value?.viewPrevious();
   if (currentPly.value > 0) currentPly.value--;
   history.value = boardAPI.value?.getHistory({ verbose: true }) || [];
 }
+
 function playViewNext() {
   boardAPI.value?.viewNext();
   currentPly.value++;
   history.value = boardAPI.value?.getHistory({ verbose: true }) || [];
 }
+
 function playViewEnd() {
   boardAPI.value?.stopViewingHistory();
   currentPly.value = boardAPI.value?.getCurrentPlyNumber() || 0;
@@ -250,7 +256,11 @@ const formattedHistory = computed(() => {
           </table>
         </div>
         <div class="button-group">
-          <button @click="toggleAnalysisMode" class="analysis-button">
+          <button
+            @click="toggleAnalysisMode"
+            class="analysis-button"
+            v-if="isAnalysisMode || currentlyLoadedPgn === historyStore.currentGame.pgn"
+          >
             {{ isAnalysisMode ? 'Exit Analysis' : 'Analyze Game' }}
           </button>
           <button v-if="isAnalysisMode" @click="saveVariation" :disabled="saving" class="save-button">
