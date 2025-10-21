@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, nextTick } from 'vue';
+import { ref, watch, nextTick, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useChessStore } from '@/stores/chess';
 import { TheChessboard } from 'vue3-chessboard';
@@ -8,6 +8,39 @@ import 'vue3-chessboard/style.css';
 const router = useRouter();
 const chessStore = useChessStore();
 const historyContainer = ref(null);
+
+let moveSound = null;
+let captureSound = null;
+let checkSound = null;
+let castleSound = null;
+let gameEndSound = null;
+let gameStartSound = null;
+
+function playSound(sound) {
+  if (sound) {
+    sound.currentTime = 0;
+    sound.play().catch(error => {
+      console.warn("Could not play sound:", error);
+    });
+  }
+}
+
+onMounted(() => {
+  moveSound = new Audio('/move.mp3');
+  captureSound = new Audio('/capture.mp3');
+  checkSound = new Audio('/check.mp3');
+  castleSound = new Audio('/castle.mp3');
+  gameEndSound = new Audio('/game-end.mp3');
+  gameStartSound = new Audio('/game-start.mp3');
+
+  [moveSound, captureSound, checkSound, castleSound, gameEndSound, gameStartSound].forEach(sound => {
+    if (sound) sound.preload = 'auto';
+  });
+
+  if (chessStore.gamePhase === 'playing') {
+      playSound(gameStartSound);
+  }
+});
 
 function onBoardCreated(boardApi) {
   chessStore.setBoardApi(boardApi);
@@ -18,13 +51,45 @@ function backToLobby() {
   router.push('/');
 }
 
-watch(() => chessStore.history, () => {
+watch(() => [...chessStore.history], (newHistory, oldHistory) => {
+  if (newHistory.length > oldHistory.length) {
+    const lastMove = newHistory[newHistory.length - 1];
+
+    if (lastMove) {
+      if (chessStore.isGameOver) {
+        playSound(gameEndSound);
+      } else {
+        if (lastMove.flags?.includes('c')) {
+          playSound(captureSound);
+        } else if (lastMove.san?.includes('+')) {
+          playSound(checkSound);
+        } else if (lastMove.flags?.includes('k') || lastMove.flags?.includes('q')) {
+          playSound(castleSound);
+        } else {
+          playSound(moveSound);
+        }
+      }
+    }
+  }
+
   nextTick(() => {
     if (historyContainer.value) {
       historyContainer.value.scrollTop = historyContainer.value.scrollHeight;
     }
   });
 }, { deep: true });
+
+watch(() => chessStore.gamePhase, (newPhase, oldPhase) => {
+  if (newPhase === 'playing' && oldPhase !== 'playing') {
+      playSound(gameStartSound);
+  }
+});
+
+watch(() => chessStore.isGameOver, (isOver) => {
+  if (isOver) {
+    playSound(gameEndSound);
+  }
+});
 
 function handleCheckmate(matedPlayerColor) {
   const winner = matedPlayerColor === 'white' ? 'Black' : 'White';
