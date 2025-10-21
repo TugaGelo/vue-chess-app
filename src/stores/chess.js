@@ -9,7 +9,7 @@ export const useChessStore = defineStore('chess', () => {
   const history = ref([]);
   const gameOverMessage = ref('');
   const errorMessage = ref('');
-  
+
   const gamePhase = ref('lobby');
   const gameId = ref('');
   const playerColor = ref('');
@@ -54,10 +54,8 @@ export const useChessStore = defineStore('chess', () => {
       }
     });
 
-    socket.on('gameCreated', (data) => {
-      console.log('[CLIENT] gameCreated received:', data);
-      gameId.value = data.gameId;
-      playerColor.value = data.playerColor;
+    socket.on('waitingForGame', () => {
+      console.log('[CLIENT] Waiting in queue for an opponent...');
       gamePhase.value = 'waiting';
     });
 
@@ -74,18 +72,16 @@ export const useChessStore = defineStore('chess', () => {
 
       if (boardAPI) {
         boardAPI.resetBoard();
-        boardAPI.setConfig({ 
+        boardAPI.setConfig({
           orientation: playerColor.value,
-          movable: { color: playerColor.value } 
+          movable: { color: playerColor.value }
         });
         const cleaned = sanitizePgn(initialPgn.value);
         if (cleaned) boardAPI.loadPgn(cleaned);
-        
+
         setTimeout(() => {
           if (boardAPI) {
             const newMaterial = boardAPI.getMaterialCount();
-            console.log('[DEBUG] Material count on game start:', newMaterial);
-
             history.value = boardAPI.getHistory(true);
             material.value = newMaterial;
           }
@@ -97,12 +93,10 @@ export const useChessStore = defineStore('chess', () => {
       if (boardAPI) {
         const cleaned = sanitizePgn(gameState.pgn);
         if (cleaned) boardAPI.loadPgn(cleaned);
-        
+
         setTimeout(() => {
           if (boardAPI) {
             const newMaterial = boardAPI.getMaterialCount();
-            console.log('[DEBUG] Material count after move:', newMaterial);
-
             history.value = boardAPI.getHistory(true) || [];
             material.value = newMaterial;
           }
@@ -112,9 +106,7 @@ export const useChessStore = defineStore('chess', () => {
     });
     
     socket.on('gameOver', (result) => {
-      console.log('[CLIENT] gameOver received:', result);
       isGameOver.value = true;
-      
       if (result === 'white_wins') {
         gameOverMessage.value = 'Game Over: White wins by checkmate!';
       } else if (result === 'black_wins') {
@@ -142,25 +134,13 @@ export const useChessStore = defineStore('chess', () => {
     userId.value = user?.id || null;
   }
 
-  function createGame() {
+  function findGame() {
     if (!userId.value) {
       errorMessage.value = 'You must be logged in to create a game.';
       return;
     }
     errorMessage.value = '';
-    socket?.emit('createGame', userId.value);
-  }
-
-  function joinGame(id) {
-    if (!userId.value) {
-      errorMessage.value = 'User not logged in';
-      return;
-    }
-    if (id) {
-      errorMessage.value = '';
-      gameId.value = id;
-      socket?.emit('joinGame', { gameId: id, userId: userId.value });
-    }
+    socket?.emit('findGame');
   }
 
   function handleMove(move) {
@@ -192,17 +172,17 @@ export const useChessStore = defineStore('chess', () => {
   function setGameOverMessage(message) {
     gameOverMessage.value = message;
   }
-  
+
   function viewStart() { boardAPI?.viewStart(); }
   function viewPrevious() { boardAPI?.viewPrevious(); }
   function viewNext() { boardAPI?.viewNext(); }
   function viewEnd() { boardAPI?.stopViewingHistory(); }
 
-  return { 
-    history, boardConfig, formattedHistory, setBoardApi, handleMove, 
+  return {
+    history, boardConfig, formattedHistory, setBoardApi, handleMove,
     connect, disconnect, gameOverMessage, setGameOverMessage,
-    resetGame, viewStart, viewPrevious, viewNext, viewEnd, gamePhase, 
-    gameId, playerColor, createGame, joinGame, errorMessage, isGameOver,
+    resetGame, viewStart, viewPrevious, viewNext, viewEnd, gamePhase,
+    gameId, playerColor, findGame, errorMessage, isGameOver,
     fetchUser, userId, material
   };
 });

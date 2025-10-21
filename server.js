@@ -19,6 +19,8 @@ const io = new Server(server, { cors: { origin: "*" } });
 const games = {};
 const socketUserMap = new Map();
 
+let waitingQueue = [];
+
 const getGameState = (gameInstance) => ({
   pgn: gameInstance.pgn(),
   isGameOver: gameInstance.isGameOver()
@@ -31,38 +33,57 @@ io.on('connection', (socket) => {
     socketUserMap.set(socket.id, userId);
   });
 
-  socket.on('createGame', async (userId) => {
-    const gameId = crypto.randomUUID();
-    const chess = new Chess();
-    games[gameId] = { game: chess, players: { white: socket.id, black: null } };
-    socket.join(gameId);
-    socket.emit('gameCreated', { gameId, playerColor: 'white' });
-    const { error } = await supabase.from('games').insert([{ id: gameId, white_player_id: userId }]);
-    if (error) console.error('[SERVER] Supabase insert error:', error);
-    console.log(`Game ${gameId} created by ${socket.id} (White)`);
-  });
+  socket.on('findGame', async () => {
+    const userId = socketUserMap.get(socket.id);
+    if (!userId) {
+      socket.emit('error', 'User not registered. Please log in.');
+      return;
+    }
 
-  socket.on('joinGame', async ({ gameId, userId }) => {
-    const gameData = games[gameId];
-    if (!gameData) {
-      socket.emit('error', 'Game not found.');
+    if (waitingQueue.some(player => player.id === socket.id)) {
+      console.log(`User ${socket.id} is already in the queue.`);
       return;
     }
-    if (gameData.players.black) {
-      socket.emit('error', 'Game is full.');
-      return;
+
+    console.log(`User ${socket.id} (User ID: ${userId}) is looking for a game.`);
+
+    waitingQueue.push(socket);
+
+    if (waitingQueue.length >= 2) {
+
+      const whiteSocket = waitingQueue.shift();
+      const blackSocket = waitingQueue.shift();
+
+      console.log(`Match found! ${whiteSocket.id} vs ${blackSocket.id}`);
+
+      const whiteUserId = socketUserMap.get(whiteSocket.id);
+      const blackUserId = socketUserMap.get(blackSocket.id);
+
+      const gameId = crypto.randomUUID();
+      const chess = new Chess();
+
+      games[gameId] = {
+        game: chess,
+        players: { white: whiteSocket.id, black: blackSocket.id }
+      };
+
+      const { error } = await supabase.from('games').insert([
+        { id: gameId, white_player_id: whiteUserId, black_player_id: blackUserId }
+      ]);
+      if (error) console.error('[SERVER] Supabase insert error:', error);
+
+      whiteSocket.join(gameId);
+      blackSocket.join(gameId);
+
+      const gameState = getGameState(chess);
+
+      io.to(whiteSocket.id).emit('gameStarted', { ...gameState, playerColor: 'white', gameId: gameId });
+      io.to(blackSocket.id).emit('gameStarted', { ...gameState, playerColor: 'black', gameId: gameId });
+
+    } else {
+      console.log(`User ${socket.id} is now waiting in the queue.`);
+      socket.emit('waitingForGame');
     }
-    const creatorUserId = socketUserMap.get(gameData.players.white);
-    if (creatorUserId === userId) {
-      socket.emit('error', "You can't join your own game.");
-      return;
-    }
-    gameData.players.black = socket.id;
-    socket.join(gameId);
-    await supabase.from('games').update({ black_player_id: userId }).eq('id', gameId);
-    const gameState = getGameState(gameData.game);
-    io.to(gameData.players.white).emit('gameStarted', { ...gameState, playerColor: 'white' });
-    io.to(gameData.players.black).emit('gameStarted', { ...gameState, playerColor: 'black' });
   });
 
   socket.on('makeMove', async ({ gameId, move }) => {
@@ -92,20 +113,16 @@ io.on('connection', (socket) => {
     if (!oldGameData || !oldGameData.players.white || !oldGameData.players.black) {
       return;
     }
-
     const whitePlayerSocketId = oldGameData.players.white;
     const blackPlayerSocketId = oldGameData.players.black;
     const whitePlayerUserId = socketUserMap.get(whitePlayerSocketId);
     const blackPlayerUserId = socketUserMap.get(blackPlayerSocketId);
-
     if (!whitePlayerUserId || !blackPlayerUserId) {
         console.error("Could not find user IDs for both players to start a rematch.");
         return;
     }
-    
     const newGameId = crypto.randomUUID();
     const newChess = new Chess();
-    
     games[newGameId] = {
         game: newChess,
         players: {
@@ -113,20 +130,16 @@ io.on('connection', (socket) => {
             black: whitePlayerSocketId
         }
     };
-    
     const { error } = await supabase.from('games').insert([{
         id: newGameId,
         white_player_id: blackPlayerUserId,
         black_player_id: whitePlayerUserId
     }]);
-
     if (error) {
         console.error('[SERVER] Rematch insert error:', error);
         return;
     }
-
     console.log(`Rematch game ${newGameId} created.`);
-
     const whiteSocket = io.sockets.sockets.get(whitePlayerSocketId);
     const blackSocket = io.sockets.sockets.get(blackPlayerSocketId);
     if(whiteSocket) {
@@ -137,17 +150,18 @@ io.on('connection', (socket) => {
         blackSocket.leave(oldGameId);
         blackSocket.join(newGameId);
     }
-
     const newGameState = getGameState(newChess);
     io.to(blackPlayerSocketId).emit('gameStarted', { ...newGameState, playerColor: 'white', gameId: newGameId });
     io.to(whitePlayerSocketId).emit('gameStarted', { ...newGameState, playerColor: 'black', gameId: newGameId });
-
     delete games[oldGameId];
   });
 
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${socket.id}`);
     socketUserMap.delete(socket.id);
+
+    waitingQueue = waitingQueue.filter(player => player.id !== socket.id);
+    console.log('Updated waiting queue after disconnect.');
   });
 });
 
