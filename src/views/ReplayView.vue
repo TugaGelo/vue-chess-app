@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed, watch, } from 'vue';
+import { ref, onMounted, computed, watch, nextTick } from 'vue';
 import { useHistoryStore } from '@/stores/history';
 import { TheChessboard } from 'vue3-chessboard';
 import { useRouter } from 'vue-router';
@@ -24,8 +24,54 @@ const analysisMoves = ref([]);
 const isBoardLoading = ref(false);
 const currentlyLoadedPgn = ref('');
 
+let moveSound = null;
+let captureSound = null;
+let checkSound = null;
+let castleSound = null;
+let gameEndSound = null;
+
+function playSound(sound) {
+  if (sound) {
+    sound.currentTime = 0;
+    sound.play().catch(error => {
+      console.warn("Could not play sound:", error);
+    });
+  }
+}
+
+function playSoundForMoveObject(moveObject, plyForSound) {
+  if (!moveObject) return;
+
+  const historyLen = history.value.length;
+  const gameHasResult = !!historyStore.currentGame?.result && historyStore.currentGame.result !== '*';
+
+  if (!isAnalysisMode.value && gameHasResult && plyForSound === historyLen) {
+      playSound(gameEndSound);
+  } else {
+    if (moveObject.san?.includes('+')) {
+      playSound(checkSound);
+    } else if (moveObject.flags?.includes('c')) {
+      playSound(captureSound);
+    } else if (moveObject.flags?.includes('k') || moveObject.flags?.includes('q')) { // Castle
+      playSound(castleSound);
+    } else {
+      playSound(moveSound);
+    }
+  }
+}
+
 onMounted(() => {
   historyStore.fetchGameById(props.id);
+
+  moveSound = new Audio('/move.mp3');
+  captureSound = new Audio('/capture.mp3');
+  checkSound = new Audio('/check.mp3');
+  castleSound = new Audio('/castle.mp3');
+  gameEndSound = new Audio('/game-end.mp3');
+
+  [moveSound, captureSound, checkSound, castleSound, gameEndSound].forEach(sound => {
+    if (sound) sound.preload = 'auto';
+  });
 });
 
 watch([() => historyStore.currentGame, boardAPI, () => isAnalysisMode.value], ([newGame, api, isAnalyzing]) => {
@@ -38,35 +84,37 @@ watch([() => historyStore.currentGame, boardAPI, () => isAnalysisMode.value], ([
       currentlyLoadedPgn.value = newGame.pgn;
       api.stopViewingHistory();
       currentPly.value = api.getCurrentPlyNumber();
-      history.value = api.getHistory({ verbose: true });
+      history.value = api.getHistory({ verbose: true }) || [];
+      console.log("ReplayView: History loaded, length:", history.value.length);
     }
   }
 });
 
 function onBoardCreated(api) {
   boardAPI.value = api;
+  if (historyStore.currentGame && !isAnalysisMode.value) {
+      api.loadPgn(historyStore.currentGame.pgn);
+      currentlyLoadedPgn.value = historyStore.currentGame.pgn;
+      api.stopViewingHistory();
+      currentPly.value = api.getCurrentPlyNumber();
+      history.value = api.getHistory({ verbose: true }) || [];
+      console.log("ReplayView: History loaded in onBoardCreated, length:", history.value.length); // DEBUG
+  }
 
   if (isAnalysisMode.value) {
     analysisMoves.value = [];
     isBoardLoading.value = true;
-
     if (historyStore.currentGame?.pgn && analysisStartPly.value > 0) {
       const chess = new Chess();
       chess.loadPgn(historyStore.currentGame.pgn);
       const movesToPlay = chess.history().slice(0, analysisStartPly.value);
-
       api.setConfig({ animation: { duration: 0 } });
-
-      for (const move of movesToPlay) {
-        api.move(move);
-      }
+      for (const move of movesToPlay) { api.move(move); }
     }
-
     api.setConfig({
       animation: { duration: 200 },
       movable: { free: false, color: 'both', showDests: true },
     });
-
     isBoardLoading.value = false;
   }
 }
@@ -77,20 +125,28 @@ function toggleAnalysisMode() {
       analysisStartPly.value = currentPly.value;
     }
     isAnalysisMode.value = !isAnalysisMode.value;
+    if (!isAnalysisMode.value && historyStore.currentGame) {
+        nextTick(() => {
+             if(boardAPI.value) {
+                boardAPI.value.loadPgn(historyStore.currentGame.pgn);
+                currentlyLoadedPgn.value = historyStore.currentGame.pgn;
+                boardAPI.value.stopViewingHistory();
+                currentPly.value = boardAPI.value.getCurrentPlyNumber();
+                history.value = boardAPI.value.getHistory({ verbose: true }) || [];
+             }
+        });
+    }
   }
 }
 
 const boardConfig = computed(() => {
   if (isAnalysisMode.value) {
-    return {
-      coordinates: true,
-      movable: { free: false, color: 'both' },
-    };
+    return { coordinates: true, movable: { free: false, color: 'both' } };
   } else {
     return {
-      pgn: historyStore.currentGame?.pgn,
+      pgn: currentlyLoadedPgn.value,
       coordinates: true,
-      viewOnly: true,
+      viewOnly: true
     };
   }
 });
@@ -98,6 +154,12 @@ const boardConfig = computed(() => {
 function handleAnalysisMove(move) {
   if (isAnalysisMode.value && !isBoardLoading.value) {
     analysisMoves.value.push(move.san);
+     const lastHistory = boardAPI.value?.getHistory({verbose: true});
+     if(lastHistory && lastHistory.length > 0) {
+         playSoundForMoveObject(lastHistory[lastHistory.length - 1], lastHistory.length);
+     } else {
+         playSound(moveSound);
+     }
   }
 }
 
@@ -157,33 +219,80 @@ function loadVariation(pgn) {
   if (boardAPI.value) {
     boardAPI.value.loadPgn(pgn);
     currentlyLoadedPgn.value = pgn;
+    boardAPI.value.stopViewingHistory();
     currentPly.value = boardAPI.value.getCurrentPlyNumber();
-    history.value = boardAPI.value.getHistory({ verbose: true });
+    history.value = boardAPI.value.getHistory({ verbose: true }) || [];
+    console.log("Variation loaded, history length:", history.value.length);
   }
 }
 
 function playViewStart() {
   boardAPI.value?.viewStart();
   currentPly.value = 0;
-  history.value = boardAPI.value?.getHistory({ verbose: true }) || [];
 }
 
 function playViewPrevious() {
+  const oldPly = currentPly.value;
+  const predictedPly = Math.max(0, oldPly - 1);
+
   boardAPI.value?.viewPrevious();
-  if (currentPly.value > 0) currentPly.value--;
-  history.value = boardAPI.value?.getHistory({ verbose: true }) || [];
+
+  if (predictedPly < oldPly) {
+      currentPly.value = predictedPly;
+      if (predictedPly > 0 && history.value && history.value.length >= predictedPly) {
+        const moveIndex = predictedPly - 1;
+        const currentMove = history.value[moveIndex];
+        console.log(`Replay Previous: Predicted Ply ${predictedPly}. Playing sound for move:`, currentMove);
+        playSoundForMoveObject(currentMove, predictedPly);
+      } else {
+        console.log(`Replay Previous: Predicted Ply ${predictedPly}, but no move found or at start.`);
+      }
+  } else {
+    console.log("Replay Previous: Already at start.");
+    setTimeout(() => { currentPly.value = boardAPI.value?.getCurrentPlyNumber() ?? 0; }, 60);
+  }
 }
 
 function playViewNext() {
+  const oldPly = currentPly.value;
+  const historyLen = history.value.length;
+  const predictedPly = Math.min(historyLen, oldPly + 1);
+
   boardAPI.value?.viewNext();
-  currentPly.value++;
-  history.value = boardAPI.value?.getHistory({ verbose: true }) || [];
+  if (predictedPly > oldPly) {
+    currentPly.value = predictedPly;
+    if (history.value && historyLen >= predictedPly) {
+        const moveIndex = predictedPly - 1;
+        const nextMove = history.value[moveIndex];
+        console.log(`Replay Next: Predicted Ply ${predictedPly}. Playing sound for move:`, nextMove);
+        playSoundForMoveObject(nextMove, predictedPly);
+    } else {
+       console.log(`Replay Next: Predicted Ply ${predictedPly}, but no move found.`);
+    }
+  } else {
+    console.log("Replay Next: Already at end.");
+    setTimeout(() => { currentPly.value = boardAPI.value?.getCurrentPlyNumber() ?? 0; }, 60);
+  }
 }
 
 function playViewEnd() {
+  const oldPly = currentPly.value;
+  const historyLen = history.value.length;
+  const predictedPly = historyLen;
+
   boardAPI.value?.stopViewingHistory();
-  currentPly.value = boardAPI.value?.getCurrentPlyNumber() || 0;
-  history.value = boardAPI.value?.getHistory({ verbose: true }) || [];
+  if (predictedPly > oldPly) {
+    currentPly.value = predictedPly;
+     if (historyLen > 0) {
+         const moveIndex = historyLen - 1;
+         const lastMove = history.value[moveIndex];
+         console.log(`Replay End: Predicted Ply ${predictedPly}. Playing sound for last move:`, lastMove);
+         playSoundForMoveObject(lastMove, predictedPly);
+     }
+  } else {
+     console.log("Replay End: Already at end.");
+     setTimeout(() => { currentPly.value = boardAPI.value?.getCurrentPlyNumber() ?? 0; }, 60);
+  }
 }
 
 const formattedHistory = computed(() => {
@@ -198,6 +307,27 @@ const formattedHistory = computed(() => {
   }
   return movePairs;
 });
+
+function handleAnalysisCheckmate() {
+  if (isAnalysisMode.value) {
+    console.log("Analysis Checkmate detected, playing game end sound.");
+    playSound(gameEndSound);
+  }
+}
+
+function handleAnalysisStalemate() {
+  if (isAnalysisMode.value) {
+    console.log("Analysis Stalemate detected, playing game end sound.");
+    playSound(gameEndSound);
+  }
+}
+
+function handleAnalysisDraw() {
+  if (isAnalysisMode.value) {
+    console.log("Analysis Draw detected, playing game end sound.");
+    playSound(gameEndSound);
+  }
+}
 </script>
 
 <template>
@@ -211,6 +341,9 @@ const formattedHistory = computed(() => {
           :board-config="boardConfig"
           @board-created="onBoardCreated"
           @move="handleAnalysisMove"
+          @checkmate="handleAnalysisCheckmate"
+          @stalemate="handleAnalysisStalemate"
+          @draw="handleAnalysisDraw"
         />
       </div>
       <div class="history-wrapper">
