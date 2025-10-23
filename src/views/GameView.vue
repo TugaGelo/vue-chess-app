@@ -25,6 +25,29 @@ function playSound(sound) {
   }
 }
 
+function playSoundForMoveObject(moveObject, currentPlyForSound) {
+  if (!moveObject) return;
+
+  const historyLen = chessStore.history.length;
+
+  if (chessStore.isGameOver && currentPlyForSound === historyLen) {
+      playSound(gameEndSound);
+  } else {
+    if (moveObject.san?.includes('+')) {
+      playSound(checkSound);
+    }
+    else if (moveObject.flags?.includes('c')) {
+      playSound(captureSound);
+    }
+    else if (moveObject.flags?.includes('k') || moveObject.flags?.includes('q')) { // Castle
+      playSound(castleSound);
+    }
+    else {
+      playSound(moveSound);
+    }
+  }
+}
+
 onMounted(() => {
   moveSound = new Audio('/move.mp3');
   captureSound = new Audio('/capture.mp3');
@@ -42,8 +65,15 @@ onMounted(() => {
   }
 });
 
+const currentPlaybackPly = ref(0);
+const boardAPI = ref(null);
+
 function onBoardCreated(boardApi) {
   chessStore.setBoardApi(boardApi);
+  boardAPI.value = boardApi;
+  currentPlaybackPly.value = boardApi.getCurrentPlyNumber();
+
+  console.log("Initial History from Store:", JSON.stringify(chessStore.history[0]));
 }
 
 function backToLobby() {
@@ -54,30 +84,16 @@ function backToLobby() {
 watch(() => [...chessStore.history], (newHistory, oldHistory) => {
   if (newHistory.length > oldHistory.length) {
     const lastMove = newHistory[newHistory.length - 1];
-
-    if (lastMove) {
-      if (chessStore.isGameOver) {
-        playSound(gameEndSound);
-      } else {
-        if (lastMove.flags?.includes('c')) {
-          playSound(captureSound);
-        } else if (lastMove.san?.includes('+')) {
-          playSound(checkSound);
-        } else if (lastMove.flags?.includes('k') || lastMove.flags?.includes('q')) {
-          playSound(castleSound);
-        } else {
-          playSound(moveSound);
-        }
-      }
-    }
+    const currentPly = newHistory.length;
+    playSoundForMoveObject(lastMove, currentPly);
+    currentPlaybackPly.value = currentPly;
   }
-
   nextTick(() => {
     if (historyContainer.value) {
       historyContainer.value.scrollTop = historyContainer.value.scrollHeight;
     }
   });
-}, { deep: true });
+});
 
 watch(() => chessStore.gamePhase, (newPhase, oldPhase) => {
   if (newPhase === 'playing' && oldPhase !== 'playing') {
@@ -85,11 +101,79 @@ watch(() => chessStore.gamePhase, (newPhase, oldPhase) => {
   }
 });
 
-watch(() => chessStore.isGameOver, (isOver) => {
-  if (isOver) {
-    playSound(gameEndSound);
+function playViewStart() {
+  boardAPI.value?.viewStart();
+  currentPlaybackPly.value = 0;
+  console.log("Navigated to Start (Ply 0)");
+}
+
+function playViewPrevious() {
+  const oldPly = currentPlaybackPly.value;
+  const predictedPly = Math.max(0, oldPly - 1);
+
+  boardAPI.value?.viewPrevious();
+
+  if (predictedPly < oldPly) {
+      currentPlaybackPly.value = predictedPly;
+
+      if (predictedPly > 0 && chessStore.history && chessStore.history.length >= predictedPly) {
+        const moveIndex = predictedPly - 1;
+        const currentMove = chessStore.history[moveIndex];
+        console.log(`Previous Button: Predicted Ply ${predictedPly}. Playing sound for move:`, currentMove);
+        playSoundForMoveObject(currentMove, predictedPly);
+      } else {
+        console.log(`Previous Button: Predicted Ply ${predictedPly}, but no move found or at start.`);
+      }
+  } else {
+    console.log("Previous Button: Already at start.");
+    setTimeout(() => { currentPlaybackPly.value = boardAPI.value?.getCurrentPlyNumber() ?? 0; }, 60);
   }
-});
+}
+
+function playViewNext() {
+  const oldPly = currentPlaybackPly.value;
+  const historyLen = chessStore.history.length;
+  const predictedPly = Math.min(historyLen, oldPly + 1);
+
+  boardAPI.value?.viewNext();
+
+  if (predictedPly > oldPly) {
+    currentPlaybackPly.value = predictedPly;
+
+    if (chessStore.history && historyLen >= predictedPly) {
+        const moveIndex = predictedPly - 1;
+        const nextMove = chessStore.history[moveIndex];
+        console.log(`Next Button: Predicted Ply ${predictedPly}. Playing sound for move:`, nextMove);
+        playSoundForMoveObject(nextMove, predictedPly);
+    } else {
+       console.log(`Next Button: Predicted Ply ${predictedPly}, but no move found.`);
+    }
+  } else {
+    console.log("Next Button: Already at end.");
+    setTimeout(() => { currentPlaybackPly.value = boardAPI.value?.getCurrentPlyNumber() ?? 0; }, 60);
+  }
+}
+
+function playViewEnd() {
+  const oldPly = currentPlaybackPly.value;
+  const historyLen = chessStore.history.length;
+  const predictedPly = historyLen;
+
+  boardAPI.value?.stopViewingHistory();
+
+  if (predictedPly > oldPly) {
+    currentPlaybackPly.value = predictedPly;
+     if (historyLen > 0) {
+         const moveIndex = historyLen - 1;
+         const lastMove = chessStore.history[moveIndex];
+         console.log(`End Button: Predicted Ply ${predictedPly}. Playing sound for last move:`, lastMove);
+         playSoundForMoveObject(lastMove, predictedPly);
+     }
+  } else {
+     console.log("End Button: Already at end.");
+     setTimeout(() => { currentPlaybackPly.value = boardAPI.value?.getCurrentPlyNumber() ?? 0; }, 60);
+  }
+}
 
 function handleCheckmate(matedPlayerColor) {
   const winner = matedPlayerColor === 'white' ? 'Black' : 'White';
@@ -133,10 +217,10 @@ function handleDraw() {
 
         </div>
         <div class="playback-controls">
-          <button @click="chessStore.viewStart()">&lt;&lt;</button>
-          <button @click="chessStore.viewPrevious()">&lt;</button>
-          <button @click="chessStore.viewNext()">&gt;</button>
-          <button @click="chessStore.viewEnd()">&gt;&gt;</button>
+          <button @click="playViewStart()">&lt;&lt;</button>
+          <button @click="playViewPrevious()">&lt;</button>
+          <button @click="playViewNext()">&gt;</button>
+          <button @click="playViewEnd()">&gt;&gt;</button>
         </div>
         <div class="history-content-scroll" ref="historyContainer">
           <table>

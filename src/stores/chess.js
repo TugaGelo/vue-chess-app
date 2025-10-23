@@ -79,13 +79,12 @@ export const useChessStore = defineStore('chess', () => {
         const cleaned = sanitizePgn(initialPgn.value);
         if (cleaned) boardAPI.loadPgn(cleaned);
 
-        setTimeout(() => {
-          if (boardAPI) {
+        if (boardAPI) {
             const newMaterial = boardAPI.getMaterialCount();
-            history.value = boardAPI.getHistory(true);
+            history.value = boardAPI.getHistory(true) || [];
             material.value = newMaterial;
-          }
-        }, 50);
+            console.log('[DEBUG] History populated on game start:', history.value.length);
+        }
       }
     });
 
@@ -94,17 +93,16 @@ export const useChessStore = defineStore('chess', () => {
         const cleaned = sanitizePgn(gameState.pgn);
         if (cleaned) boardAPI.loadPgn(cleaned);
 
-        setTimeout(() => {
-          if (boardAPI) {
+        if (boardAPI) {
             const newMaterial = boardAPI.getMaterialCount();
             history.value = boardAPI.getHistory(true) || [];
             material.value = newMaterial;
-          }
-        }, 50);
+            console.log('[DEBUG] History updated after move:', history.value.length);
+        }
       }
       isGameOver.value = gameState.isGameOver;
     });
-    
+
     socket.on('gameOver', (result) => {
       isGameOver.value = true;
       if (result === 'white_wins') {
