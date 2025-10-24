@@ -5,6 +5,7 @@ import { TheChessboard } from 'vue3-chessboard';
 import { useRouter } from 'vue-router';
 import { Chess } from 'chess.js';
 import 'vue3-chessboard/style.css';
+import { useChessSounds } from '@/composables/useChessSounds';
 
 const props = defineProps({
   id: String,
@@ -24,54 +25,11 @@ const analysisMoves = ref([]);
 const isBoardLoading = ref(false);
 const currentlyLoadedPgn = ref('');
 
-let moveSound = null;
-let captureSound = null;
-let checkSound = null;
-let castleSound = null;
-let gameEndSound = null;
-
-function playSound(sound) {
-  if (sound) {
-    sound.currentTime = 0;
-    sound.play().catch(error => {
-      console.warn("Could not play sound:", error);
-    });
-  }
-}
-
-function playSoundForMoveObject(moveObject, plyForSound) {
-  if (!moveObject) return;
-
-  const historyLen = history.value.length;
-  const gameHasResult = !!historyStore.currentGame?.result && historyStore.currentGame.result !== '*';
-
-  if (!isAnalysisMode.value && gameHasResult && plyForSound === historyLen) {
-      playSound(gameEndSound);
-  } else {
-    if (moveObject.san?.includes('+')) {
-      playSound(checkSound);
-    } else if (moveObject.flags?.includes('c')) {
-      playSound(captureSound);
-    } else if (moveObject.flags?.includes('k') || moveObject.flags?.includes('q')) { // Castle
-      playSound(castleSound);
-    } else {
-      playSound(moveSound);
-    }
-  }
-}
+const { initChessSounds, playMoveSound, playGameEndSound } = useChessSounds();
 
 onMounted(() => {
   historyStore.fetchGameById(props.id);
-
-  moveSound = new Audio('/move.mp3');
-  captureSound = new Audio('/capture.mp3');
-  checkSound = new Audio('/check.mp3');
-  castleSound = new Audio('/castle.mp3');
-  gameEndSound = new Audio('/game-end.mp3');
-
-  [moveSound, captureSound, checkSound, castleSound, gameEndSound].forEach(sound => {
-    if (sound) sound.preload = 'auto';
-  });
+  initChessSounds();
 });
 
 watch([() => historyStore.currentGame, boardAPI, () => isAnalysisMode.value], ([newGame, api, isAnalyzing]) => {
@@ -126,15 +84,15 @@ function toggleAnalysisMode() {
     }
     isAnalysisMode.value = !isAnalysisMode.value;
     if (!isAnalysisMode.value && historyStore.currentGame) {
-        nextTick(() => {
-             if(boardAPI.value) {
-                boardAPI.value.loadPgn(historyStore.currentGame.pgn);
-                currentlyLoadedPgn.value = historyStore.currentGame.pgn;
-                boardAPI.value.stopViewingHistory();
-                currentPly.value = boardAPI.value.getCurrentPlyNumber();
-                history.value = boardAPI.value.getHistory({ verbose: true }) || [];
-             }
-        });
+      nextTick(() => {
+            if(boardAPI.value) {
+              boardAPI.value.loadPgn(historyStore.currentGame.pgn);
+              currentlyLoadedPgn.value = historyStore.currentGame.pgn;
+              boardAPI.value.stopViewingHistory();
+              currentPly.value = boardAPI.value.getCurrentPlyNumber();
+              history.value = boardAPI.value.getHistory({ verbose: true }) || [];
+            }
+      });
     }
   }
 }
@@ -154,12 +112,12 @@ const boardConfig = computed(() => {
 function handleAnalysisMove(move) {
   if (isAnalysisMode.value && !isBoardLoading.value) {
     analysisMoves.value.push(move.san);
-     const lastHistory = boardAPI.value?.getHistory({verbose: true});
-     if(lastHistory && lastHistory.length > 0) {
-         playSoundForMoveObject(lastHistory[lastHistory.length - 1], lastHistory.length);
-     } else {
-         playSound(moveSound);
-     }
+    const lastHistory = boardAPI.value?.getHistory({ verbose: true });
+    if (lastHistory && lastHistory.length > 0) {
+      playMoveSound(lastHistory[lastHistory.length - 1], false);
+    } else {
+      playMoveSound({ san: move.san, flags: move.flags }, false);
+    }
   }
 }
 
@@ -238,15 +196,19 @@ function playViewPrevious() {
   boardAPI.value?.viewPrevious();
 
   if (predictedPly < oldPly) {
-      currentPly.value = predictedPly;
-      if (predictedPly > 0 && history.value && history.value.length >= predictedPly) {
-        const moveIndex = predictedPly - 1;
-        const currentMove = history.value[moveIndex];
-        console.log(`Replay Previous: Predicted Ply ${predictedPly}. Playing sound for move:`, currentMove);
-        playSoundForMoveObject(currentMove, predictedPly);
-      } else {
-        console.log(`Replay Previous: Predicted Ply ${predictedPly}, but no move found or at start.`);
-      }
+    currentPly.value = predictedPly;
+    if (predictedPly > 0 && history.value && history.value.length >= predictedPly) {
+      const moveIndex = predictedPly - 1;
+      const currentMove = history.value[moveIndex];
+      console.log(`Replay Previous: Predicted Ply ${predictedPly}. Playing sound for move:`, currentMove);
+
+      const gameHasResult = !!historyStore.currentGame?.result && historyStore.currentGame.result !== '*';
+      const isGameEndingMove = !isAnalysisMode.value && gameHasResult && predictedPly === history.value.length;
+      playMoveSound(currentMove, isGameEndingMove);
+
+    } else {
+      console.log(`Replay Previous: Predicted Ply ${predictedPly}, but no move found or at start.`);
+    }
   } else {
     console.log("Replay Previous: Already at start.");
     setTimeout(() => { currentPly.value = boardAPI.value?.getCurrentPlyNumber() ?? 0; }, 60);
@@ -262,10 +224,14 @@ function playViewNext() {
   if (predictedPly > oldPly) {
     currentPly.value = predictedPly;
     if (history.value && historyLen >= predictedPly) {
-        const moveIndex = predictedPly - 1;
-        const nextMove = history.value[moveIndex];
-        console.log(`Replay Next: Predicted Ply ${predictedPly}. Playing sound for move:`, nextMove);
-        playSoundForMoveObject(nextMove, predictedPly);
+      const moveIndex = predictedPly - 1;
+      const nextMove = history.value[moveIndex];
+      console.log(`Replay Next: Predicted Ply ${predictedPly}. Playing sound for move:`, nextMove);
+
+      const gameHasResult = !!historyStore.currentGame?.result && historyStore.currentGame.result !== '*';
+      const isGameEndingMove = !isAnalysisMode.value && gameHasResult && predictedPly === historyLen;
+      playMoveSound(nextMove, isGameEndingMove);
+
     } else {
        console.log(`Replay Next: Predicted Ply ${predictedPly}, but no move found.`);
     }
@@ -283,12 +249,15 @@ function playViewEnd() {
   boardAPI.value?.stopViewingHistory();
   if (predictedPly > oldPly) {
     currentPly.value = predictedPly;
-     if (historyLen > 0) {
-         const moveIndex = historyLen - 1;
-         const lastMove = history.value[moveIndex];
-         console.log(`Replay End: Predicted Ply ${predictedPly}. Playing sound for last move:`, lastMove);
-         playSoundForMoveObject(lastMove, predictedPly);
-     }
+    if (historyLen > 0) {
+      const moveIndex = historyLen - 1;
+      const lastMove = history.value[moveIndex];
+      console.log(`Replay End: Predicted Ply ${predictedPly}. Playing sound for last move:`, lastMove);
+
+      const gameHasResult = !!historyStore.currentGame?.result && historyStore.currentGame.result !== '*';
+      const isGameEndingMove = !isAnalysisMode.value && gameHasResult && predictedPly === historyLen;
+      playMoveSound(lastMove, isGameEndingMove);
+    }
   } else {
      console.log("Replay End: Already at end.");
      setTimeout(() => { currentPly.value = boardAPI.value?.getCurrentPlyNumber() ?? 0; }, 60);
@@ -311,21 +280,21 @@ const formattedHistory = computed(() => {
 function handleAnalysisCheckmate() {
   if (isAnalysisMode.value) {
     console.log("Analysis Checkmate detected, playing game end sound.");
-    playSound(gameEndSound);
+    playGameEndSound();
   }
 }
 
 function handleAnalysisStalemate() {
   if (isAnalysisMode.value) {
     console.log("Analysis Stalemate detected, playing game end sound.");
-    playSound(gameEndSound);
+    playGameEndSound();
   }
 }
 
 function handleAnalysisDraw() {
   if (isAnalysisMode.value) {
     console.log("Analysis Draw detected, playing game end sound.");
-    playSound(gameEndSound);
+    playGameEndSound();
   }
 }
 </script>
