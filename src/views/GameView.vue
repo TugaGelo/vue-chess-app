@@ -6,6 +6,7 @@ import { TheChessboard } from 'vue3-chessboard';
 import 'vue3-chessboard/style.css';
 import { useChessSounds } from '@/composables/useChessSounds';
 import { useBoardPlayback } from '@/composables/useBoardPlayback';
+import { useFormattedHistory } from '@/composables/useFormattedHistory';
 
 const router = useRouter();
 const chessStore = useChessStore();
@@ -59,17 +60,17 @@ watch(() => chessStore.gamePhase, (newPhase, oldPhase) => {
   }
 });
 
-const historyRef = computed(() => chessStore.history);
+const { formattedHistory } = useFormattedHistory(computed(() => chessStore.history));
 
 function playSoundCallback(move, ply) {
-  const isGameEndingMove = chessStore.isGameOver && ply === historyRef.value.length;
+  const isGameEndingMove = chessStore.isGameOver && ply === chessStore.history.length;
   playMoveSound(move, isGameEndingMove);
 }
 
 const { playViewStart, playViewPrevious, playViewNext, playViewEnd } = useBoardPlayback(
   boardAPI,
   currentPlaybackPly,
-  historyRef,
+  computed(() => chessStore.history),
   playSoundCallback
 );
 
@@ -133,7 +134,7 @@ function handleDraw() {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="move in chessStore.formattedHistory" :key="move.move">
+              <tr v-for="move in formattedHistory" :key="move.move">
                 <td>{{ move.move }}</td>
                 <td>{{ move.white }}</td>
                 <td>{{ move.black }}</td>

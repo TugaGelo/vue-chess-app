@@ -7,6 +7,7 @@ import { Chess } from 'chess.js';
 import 'vue3-chessboard/style.css';
 import { useChessSounds } from '@/composables/useChessSounds';
 import { useBoardPlayback } from '@/composables/useBoardPlayback';
+import { useFormattedHistory } from '@/composables/useFormattedHistory';
 
 const props = defineProps({
   id: String,
@@ -198,18 +199,7 @@ const { playViewStart, playViewPrevious, playViewNext, playViewEnd } = useBoardP
   playSoundCallback
 );
 
-const formattedHistory = computed(() => {
-  const movePairs = [];
-  if (!history.value) return [];
-  for (let i = 0; i < history.value.length; i += 2) {
-    movePairs.push({
-      move: Math.floor(i / 2) + 1,
-      white: history.value[i]?.san || '',
-      black: history.value[i + 1]?.san || '',
-    });
-  }
-  return movePairs;
-});
+const { formattedHistory } = useFormattedHistory(history);
 
 function handleAnalysisCheckmate() {
   if (isAnalysisMode.value) {
