@@ -6,6 +6,7 @@ import { useRouter } from 'vue-router';
 import { Chess } from 'chess.js';
 import 'vue3-chessboard/style.css';
 import { useChessSounds } from '@/composables/useChessSounds';
+import { useBoardPlayback } from '@/composables/useBoardPlayback';
 
 const props = defineProps({
   id: String,
@@ -56,7 +57,7 @@ function onBoardCreated(api) {
       api.stopViewingHistory();
       currentPly.value = api.getCurrentPlyNumber();
       history.value = api.getHistory({ verbose: true }) || [];
-      console.log("ReplayView: History loaded in onBoardCreated, length:", history.value.length); // DEBUG
+      console.log("ReplayView: History loaded in onBoardCreated, length:", history.value.length);
   }
 
   if (isAnalysisMode.value) {
@@ -184,85 +185,18 @@ function loadVariation(pgn) {
   }
 }
 
-function playViewStart() {
-  boardAPI.value?.viewStart();
-  currentPly.value = 0;
+function playSoundCallback(move, ply) {
+  const gameHasResult = !!historyStore.currentGame?.result && historyStore.currentGame.result !== '*';
+  const isGameEndingMove = !isAnalysisMode.value && gameHasResult && ply === history.value.length;
+  playMoveSound(move, isGameEndingMove);
 }
 
-function playViewPrevious() {
-  const oldPly = currentPly.value;
-  const predictedPly = Math.max(0, oldPly - 1);
-
-  boardAPI.value?.viewPrevious();
-
-  if (predictedPly < oldPly) {
-    currentPly.value = predictedPly;
-    if (predictedPly > 0 && history.value && history.value.length >= predictedPly) {
-      const moveIndex = predictedPly - 1;
-      const currentMove = history.value[moveIndex];
-      console.log(`Replay Previous: Predicted Ply ${predictedPly}. Playing sound for move:`, currentMove);
-
-      const gameHasResult = !!historyStore.currentGame?.result && historyStore.currentGame.result !== '*';
-      const isGameEndingMove = !isAnalysisMode.value && gameHasResult && predictedPly === history.value.length;
-      playMoveSound(currentMove, isGameEndingMove);
-
-    } else {
-      console.log(`Replay Previous: Predicted Ply ${predictedPly}, but no move found or at start.`);
-    }
-  } else {
-    console.log("Replay Previous: Already at start.");
-    setTimeout(() => { currentPly.value = boardAPI.value?.getCurrentPlyNumber() ?? 0; }, 60);
-  }
-}
-
-function playViewNext() {
-  const oldPly = currentPly.value;
-  const historyLen = history.value.length;
-  const predictedPly = Math.min(historyLen, oldPly + 1);
-
-  boardAPI.value?.viewNext();
-  if (predictedPly > oldPly) {
-    currentPly.value = predictedPly;
-    if (history.value && historyLen >= predictedPly) {
-      const moveIndex = predictedPly - 1;
-      const nextMove = history.value[moveIndex];
-      console.log(`Replay Next: Predicted Ply ${predictedPly}. Playing sound for move:`, nextMove);
-
-      const gameHasResult = !!historyStore.currentGame?.result && historyStore.currentGame.result !== '*';
-      const isGameEndingMove = !isAnalysisMode.value && gameHasResult && predictedPly === historyLen;
-      playMoveSound(nextMove, isGameEndingMove);
-
-    } else {
-       console.log(`Replay Next: Predicted Ply ${predictedPly}, but no move found.`);
-    }
-  } else {
-    console.log("Replay Next: Already at end.");
-    setTimeout(() => { currentPly.value = boardAPI.value?.getCurrentPlyNumber() ?? 0; }, 60);
-  }
-}
-
-function playViewEnd() {
-  const oldPly = currentPly.value;
-  const historyLen = history.value.length;
-  const predictedPly = historyLen;
-
-  boardAPI.value?.stopViewingHistory();
-  if (predictedPly > oldPly) {
-    currentPly.value = predictedPly;
-    if (historyLen > 0) {
-      const moveIndex = historyLen - 1;
-      const lastMove = history.value[moveIndex];
-      console.log(`Replay End: Predicted Ply ${predictedPly}. Playing sound for last move:`, lastMove);
-
-      const gameHasResult = !!historyStore.currentGame?.result && historyStore.currentGame.result !== '*';
-      const isGameEndingMove = !isAnalysisMode.value && gameHasResult && predictedPly === historyLen;
-      playMoveSound(lastMove, isGameEndingMove);
-    }
-  } else {
-     console.log("Replay End: Already at end.");
-     setTimeout(() => { currentPly.value = boardAPI.value?.getCurrentPlyNumber() ?? 0; }, 60);
-  }
-}
+const { playViewStart, playViewPrevious, playViewNext, playViewEnd } = useBoardPlayback(
+  boardAPI,
+  currentPly,
+  history,
+  playSoundCallback
+);
 
 const formattedHistory = computed(() => {
   const movePairs = [];

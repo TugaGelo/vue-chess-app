@@ -1,10 +1,11 @@
 <script setup>
-import { ref, watch, nextTick, onMounted } from 'vue';
+import { ref, watch, nextTick, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useChessStore } from '@/stores/chess';
 import { TheChessboard } from 'vue3-chessboard';
 import 'vue3-chessboard/style.css';
 import { useChessSounds } from '@/composables/useChessSounds';
+import { useBoardPlayback } from '@/composables/useBoardPlayback';
 
 const router = useRouter();
 const chessStore = useChessStore();
@@ -58,85 +59,19 @@ watch(() => chessStore.gamePhase, (newPhase, oldPhase) => {
   }
 });
 
-function playViewStart() {
-  boardAPI.value?.viewStart();
-  currentPlaybackPly.value = 0;
-  console.log("Navigated to Start (Ply 0)");
+const historyRef = computed(() => chessStore.history);
+
+function playSoundCallback(move, ply) {
+  const isGameEndingMove = chessStore.isGameOver && ply === historyRef.value.length;
+  playMoveSound(move, isGameEndingMove);
 }
 
-function playViewPrevious() {
-  const oldPly = currentPlaybackPly.value;
-  const predictedPly = Math.max(0, oldPly - 1);
-
-  boardAPI.value?.viewPrevious();
-
-  if (predictedPly < oldPly) {
-    currentPlaybackPly.value = predictedPly;
-
-    if (predictedPly > 0 && chessStore.history && chessStore.history.length >= predictedPly) {
-      const moveIndex = predictedPly - 1;
-      const currentMove = chessStore.history[moveIndex];
-      console.log(`Previous Button: Predicted Ply ${predictedPly}. Playing sound for move:`, currentMove);
-
-      const isGameEndingMove = chessStore.isGameOver && predictedPly === chessStore.history.length;
-      playMoveSound(currentMove, isGameEndingMove);
-    } else {
-      console.log(`Previous Button: Predicted Ply ${predictedPly}, but no move found or at start.`);
-    }
-  } else {
-    console.log("Previous Button: Already at start.");
-    setTimeout(() => { currentPlaybackPly.value = boardAPI.value?.getCurrentPlyNumber() ?? 0; }, 60);
-  }
-}
-
-function playViewNext() {
-  const oldPly = currentPlaybackPly.value;
-  const historyLen = chessStore.history.length;
-  const predictedPly = Math.min(historyLen, oldPly + 1);
-
-  boardAPI.value?.viewNext();
-
-  if (predictedPly > oldPly) {
-    currentPlaybackPly.value = predictedPly;
-
-    if (chessStore.history && historyLen >= predictedPly) {
-      const moveIndex = predictedPly - 1;
-      const nextMove = chessStore.history[moveIndex];
-      console.log(`Next Button: Predicted Ply ${predictedPly}. Playing sound for move:`, nextMove);
-
-      const isGameEndingMove = chessStore.isGameOver && predictedPly === historyLen;
-      playMoveSound(nextMove, isGameEndingMove);
-    } else {
-      console.log(`Next Button: Predicted Ply ${predictedPly}, but no move found.`);
-    }
-  } else {
-    console.log("Next Button: Already at end.");
-    setTimeout(() => { currentPlaybackPly.value = boardAPI.value?.getCurrentPlyNumber() ?? 0; }, 60);
-  }
-}
-
-function playViewEnd() {
-  const oldPly = currentPlaybackPly.value;
-  const historyLen = chessStore.history.length;
-  const predictedPly = historyLen;
-
-  boardAPI.value?.stopViewingHistory();
-
-  if (predictedPly > oldPly) {
-    currentPlaybackPly.value = predictedPly;
-    if (historyLen > 0) {
-      const moveIndex = historyLen - 1;
-      const lastMove = chessStore.history[moveIndex];
-      console.log(`End Button: Predicted Ply ${predictedPly}. Playing sound for last move:`, lastMove);
-
-      const isGameEndingMove = chessStore.isGameOver && predictedPly === historyLen;
-      playMoveSound(lastMove, isGameEndingMove);
-    }
-  } else {
-     console.log("End Button: Already at end.");
-     setTimeout(() => { currentPlaybackPly.value = boardAPI.value?.getCurrentPlyNumber() ?? 0; }, 60);
-  }
-}
+const { playViewStart, playViewPrevious, playViewNext, playViewEnd } = useBoardPlayback(
+  boardAPI,
+  currentPlaybackPly,
+  historyRef,
+  playSoundCallback
+);
 
 function handleCheckmate(matedPlayerColor) {
   playGameEndSound();
