@@ -154,7 +154,7 @@ function handleDraw() {
   </div>
 </template>
 
-<style>
+<style scoped>
 .app-container {
   text-align: center;
   padding: 10px;

@@ -40,9 +40,9 @@ function handleDelete(gameId) {
         <h1>Game History</h1>
         <button @click="router.push('/')" class="back-button">Back to Lobby</button>
       </div>
-      
+
       <div v-if="historyStore.loading" class="loading">Loading...</div>
-      
+
       <div v-else class="game-list-container">
         <div class="list-header">
           <div class="col-players">Players</div>
@@ -79,107 +79,107 @@ function handleDelete(gameId) {
 </template>
 
 <style scoped>
-.history-container { 
-  padding: 20px; 
-  display: flex; 
-  justify-content: center; 
-  align-items: flex-start; 
-  min-height: 100vh; 
+.history-container {
+  padding: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
 }
-.history-box { 
-  width: 100%; 
-  max-width: 800px; 
-  background: white; 
-  padding: 20px 30px; 
-  border-radius: 8px; 
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+.history-box {
+  width: 100%;
+  max-width: 800px;
+  background: white;
+  padding: 20px 30px;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
-.header { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  border-bottom: 1px solid #eee; 
-  padding-bottom: 15px; 
-  margin-bottom: 20px; 
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 15px;
+  margin-bottom: 20px;
 }
-h1 { 
-  color: #333; 
-  margin: 0; 
+h1 {
+  color: #333;
+  margin: 0;
 }
-.back-button { 
-  padding: 8px 16px; 
-  font-size: 14px; 
-  cursor: pointer; 
-  border-radius: 4px; 
-  border: none; 
-  background-color: #6c757d; 
-  color: white; 
-  transition: background-color 0.2s; 
+.back-button {
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 4px;
+  border: none;
+  background-color: #6c757d;
+  color: white;
+  transition: background-color 0.2s;
 }
-.back-button:hover { 
-  background-color: #5a6268; 
+.back-button:hover {
+  background-color: #5a6268;
 }
-.loading, .no-games { 
-  font-size: 1.1em; 
+.loading, .no-games {
+  font-size: 1.1em;
   padding: 50px; text-align: center; color: #888; }
-.list-header, .game-row { 
-  display: flex; 
-  align-items: center; 
-  padding: 0 15px; 
+.list-header, .game-row {
+  display: flex;
+  align-items: center;
+  padding: 0 15px;
 }
-.list-header { 
-  font-weight: bold; 
-  color: #888; 
-  font-size: 0.9em; 
-  text-transform: uppercase; 
+.list-header {
+  font-weight: bold;
+  color: #888;
+  font-size: 0.9em;
+  text-transform: uppercase;
 }
-.game-list { 
-  margin-top: 10px; 
+.game-list {
+  margin-top: 10px;
 }
-.game-row { 
-  padding: 15px; 
-  border-radius: 6px; 
-  transition: background-color 0.2s; 
-  border-bottom: 1px solid #f0f0f0; 
+.game-row {
+  padding: 15px;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+  border-bottom: 1px solid #f0f0f0;
 }
-.game-row:hover { 
-  background-color: #f9f9f9; 
+.game-row:hover {
+  background-color: #f9f9f9;
 }
 
-.col-players { 
-  flex: 3; 
-  display: flex; 
-  flex-direction: column; 
-  gap: 5px; 
+.col-players {
+  flex: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
 }
 .players-link {
   cursor: pointer;
 }
-.col-result { 
-  flex: 1; 
-  display: flex; 
-  flex-direction: column; 
-  text-align: center; 
-  gap: 5px; 
+.col-result {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+  gap: 5px;
 }
-.col-date { 
-  flex: 2; 
-  text-align: right; 
-  color: #666; 
-  font-size: 0.9em; 
+.col-date {
+  flex: 2;
+  text-align: right;
+  color: #666;
+  font-size: 0.9em;
 }
 .col-actions {
   flex: 1;
   text-align: right;
 }
 
-.player-name { 
-  font-size: 1em; 
-  color: #333; 
+.player-name {
+  font-size: 1em;
+  color: #333;
 }
-.result-score { 
-  font-weight: bold; 
-  font-size: 1.1em; 
+.result-score {
+  font-weight: bold;
+  font-size: 1.1em;
 }
 
 .delete-button {
