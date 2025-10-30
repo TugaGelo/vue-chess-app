@@ -154,19 +154,6 @@ export const useChessStore = defineStore('chess', () => {
     socket?.emit('resetGame', gameId.value);
   }
 
-  const formattedHistory = computed(() => {
-    const movePairs = [];
-    if (!history.value) return [];
-    for (let i = 0; i < history.value.length; i += 2) {
-      movePairs.push({
-        move: Math.floor(i / 2) + 1,
-        white: history.value[i]?.san || '',
-        black: history.value[i + 1]?.san || '',
-      });
-    }
-    return movePairs;
-  });
-
   function setGameOverMessage(message) {
     gameOverMessage.value = message;
   }
@@ -177,7 +164,7 @@ export const useChessStore = defineStore('chess', () => {
   function viewEnd() { boardAPI?.stopViewingHistory(); }
 
   return {
-    history, boardConfig, formattedHistory, setBoardApi, handleMove,
+    history, boardConfig, setBoardApi, handleMove,
     connect, disconnect, gameOverMessage, setGameOverMessage,
     resetGame, viewStart, viewPrevious, viewNext, viewEnd, gamePhase,
     gameId, playerColor, findGame, errorMessage, isGameOver,

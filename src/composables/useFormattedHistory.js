@@ -3,8 +3,21 @@ import { computed } from 'vue';
 function sanToFigurine(san, color = 'w') {
   if (!san) return '';
 
-  const whitePieceMap = { 'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘' };
-  const blackPieceMap = { 'K': '♚', 'Q': '♛', 'R': '♜', 'B': '♝', 'N': '♞' };
+  const whitePieceMap = {
+    'K': '♔',
+    'Q': '♕',
+    'R': '♖',
+    'B': '♗',
+    'N': '♘'
+  };
+
+  const blackPieceMap = {
+    'K': '♚',
+    'Q': '♛',
+    'R': '♜',
+    'B': '♝',
+    'N': '♞'
+  };
 
   const pieceMap = (color === 'b') ? blackPieceMap : whitePieceMap;
 
