@@ -8,103 +8,121 @@ This application allows multiple users to play chess against each other simultan
 
 ## Features ✨
 
-- **Real-time Multiplayer**: Play chess live against others using Socket.IO for instant move updates.
-- **Matchmaking**: Simple "Play" button to automatically find an available opponent.
-- **Game History**: Stores completed games (using Supabase) for later review.
-- **Replay & Analysis**: View past games move-by-move and create/save analysis variations.
-- **Figurine Notation**: Uses Unicode chess pieces (e.g., ♘f3, ♝c5) in move lists.
-- **Sound Effects**: Audio feedback for moves, captures, checks, game start/end, etc.
-- **Office Friendly**: Designed to handle multiple simultaneous games from users sharing the same public IP address.
+-   **Real-time Multiplayer**: Play chess live against others using Socket.IO for instant move updates.
+-   **Matchmaking**: Simple "Play" button to automatically find an available opponent.
+-   **Game History**: Stores completed games (using Supabase) for later review.
+-   **Replay & Analysis**: View past games move-by-move and create/save analysis variations.
+-   **Figurine Notation**: Uses Unicode chess pieces (e.g., ♘f3, ♝c5) in move lists.
+-   **Sound Effects**: Audio feedback for moves, captures, checks, game start/end, etc.
+-   **Office Friendly**: Designed to handle multiple simultaneous games from users sharing the same public IP address.
 
-## How it Works (Office Context) 🏢
+## Tech Stack & Architecture
 
-The application uses a Node.js server with Socket.IO to manage live connections. Each player connects via a unique socket ID, allowing the server to differentiate between users and manage multiple games concurrently, even if many users are connecting from the same office IP address. Game state is managed server-side, and completed games are persisted in a Supabase PostgreSQL database.
+This project runs as a single application. The `package.json` manages both client and server dependencies.
+
+* **Client (Vue)**: The frontend is a **Vue 3** + **Pinia** application built with Vite.
+* **Server (Node.js)**: The backend is a single **`server.js`** file using **Express** and **Socket.IO** to manage real-time game logic.
+* **Database**: **Supabase** is used for authentication and storing game data.
+* **Dev Script**: The `npm run dev` command uses **`concurrently`** to run both the Vite client and the Node.js server at the same time.
+
+---
 
 ## Setup & Installation ⚙️
 
-### Clone the Repo
+Follow these steps to set up the entire application, including the database, client, and server.
+
+### Step 1: Clone & Install Dependencies
+
+First, clone the repo and install all dependencies from the root `package.json`.
+
 ```sh
-git clone https://github.com/TugaGelo/vue-chess-app
+git clone [https://github.com/TugaGelo/vue-chess-app](https://github.com/TugaGelo/vue-chess-app)
 cd vue-chess-app
-```
 
-### Install Dependencies
-
-```sh
+# Install all client AND server dependencies
 npm install
 ```
 
-### Supabase Setup
+### Step 2: Supabase Project Setup
 
-- Create a free Supabase project at supabase.com.
-- Go to the SQL Editor in your Supabase dashboard (sidebar > SQL Editor > + New query).
-- Run the following SQL queries one by one:
-  - Create the games table:
-```sh
--- Create the games table
-create table public.games (
-  id uuid not null default gen_random_uuid (),
-  created_at timestamp with time zone not null default now(),
-  white_player_id uuid null,
-  black_player_id uuid null,
-  result text null,
-  pgn text null,
-  ended_at timestamp with time zone null,
-  variations jsonb null default '[]'::jsonb, -- Stores analysis variations
-  constraint games_pkey primary key (id),
-  constraint games_black_player_id_fkey foreign key (black_player_id) references auth.users (id) on delete set null,
-  constraint games_white_player_id_fkey foreign key (white_player_id) references auth.users (id) on delete set null
+1.  **Create Project**: Go to [supabase.com](https://supabase.com) and create a new, free project.
+2.  **Get API Keys**: Go to your project's **Settings > API**. You will need three values:
+    * Project URL (e.g., `https://<your-ref>.supabase.co`)
+    * `anon` (public) key
+    * `service_role` (secret) key
+3.  **Setup Auth**: Our database functions need a `username` for each user.
+    * Go to **Authentication > Providers** and ensure **Email** is enabled.
+    * Go to **Authentication > Settings** and turn **OFF** the **"Confirm email"** toggle. This makes testing sign-ups *much* easier, as you won't have to check your email.
+4.  **Run SQL Setup**: Go to the **SQL Editor** in your Supabase dashboard. Copy and paste the **entire** block below and run it as one query.
+
+```sql
+/*
+ * =======================================
+ * 1. CREATE 'games' TABLE
+ * =======================================
+ */
+CREATE TABLE public.games (
+  id uuid NOT NULL DEFAULT gen_random_uuid (),
+  created_at timestamp WITH TIME zone NOT NULL DEFAULT NOW(),
+  white_player_id uuid NULL,
+  black_player_id uuid NULL,
+  result text NULL,
+  pgn text NULL,
+  ended_at timestamp WITH TIME zone NULL,
+  variations jsonb NULL DEFAULT '[]'::jsonb,
+  CONSTRAINT games_pkey PRIMARY KEY (id),
+  CONSTRAINT games_black_player_id_fkey FOREIGN KEY (black_player_id) REFERENCES auth.users (id) ON DELETE SET NULL,
+  CONSTRAINT games_white_player_id_fkey FOREIGN KEY (white_player_id) REFERENCES auth.users (id) ON DELETE SET NULL
 );
 
--- Enable Row Level Security (Important!)
-alter table public.games enable row level security;
+/*
+ * =======================================
+ * 2. ENABLE ROW LEVEL SECURITY (RLS)
+ * We lock the table down. All access
+ * will be via the server (service_key) or
+ * 'SECURITY DEFINER' functions.
+ * =======================================
+ */
+ALTER TABLE public.games ENABLE ROW LEVEL SECURITY;
 
--- Allow logged-in users to read all games (adjust if needed)
-create policy "Allow authenticated read access"
-on public.games for select
-using ( auth.role() = 'authenticated' );
+-- Deny all public access by default.
+-- This is secure because our server uses the service_role key
+-- (which bypasses RLS) and our client uses the functions below.
+CREATE POLICY "Deny all access"
+ON public.games
+FOR ALL
+USING (false)
+WITH CHECK (false);
 
--- Allow users to insert games (server uses service_role key, bypassing this, but good practice)
-create policy "Allow individual user insert access"
-on public.games for insert
-with check ( auth.uid() = white_player_id OR auth.uid() = black_player_id ); -- Example check
-
--- Allow users to update games they participated in (primarily for server-side updates via service_key)
-create policy "Allow individual user update access"
-on public.games for update
-using ( auth.uid() = white_player_id OR auth.uid() = black_player_id ); -- Example check
-```
-
-  - Drop the old get_game_by_id function (if it exists):
-```sh
+/*
+ * =======================================
+ * 3. CREATE 'get_game_by_id' FUNCTION
+ * Fetches game details & usernames
+ * =======================================
+ */
 DROP FUNCTION IF EXISTS public.get_game_by_id(uuid);
-```
 
-  - Create the get_game_by_id database function:
-```sh
--- Fetches game details including variations and usernames
 CREATE OR REPLACE FUNCTION public.get_game_by_id(game_id uuid)
 RETURNS TABLE(
     id uuid,
-    created_at timestamp with time zone,
+    created_at timestamp WITH TIME zone,
     white_player_id uuid,
     black_player_id uuid,
     result text,
     pgn text,
-    ended_at timestamp with time zone,
+    ended_at timestamp WITH TIME zone,
     variations jsonb,
     white_username text,
     black_username text
 )
 LANGUAGE plpgsql
-SECURITY DEFINER -- Allows function to read auth.users safely
+SECURITY DEFINER -- Runs with elevated privileges
 SET search_path = public -- Required for SECURITY DEFINER
 AS $$
 BEGIN
     RETURN QUERY
     SELECT
-        g.*, -- Selects all columns from games, including 'variations'
-        -- Assumes username is stored in raw_user_meta_data (default Supabase Auth)
+        g.*,
         wu.raw_user_meta_data->>'username' AS white_username,
         bu.raw_user_meta_data->>'username' AS black_username
     FROM
@@ -117,60 +135,182 @@ BEGIN
         g.id = game_id;
 END;
 $$;
-```
 
-  - Create get_game_history function 
-```sh
--- Example function to get game list with usernames
--- Adjust the SELECT statement as needed for your HistoryView
-DROP FUNCTION IF EXISTS public.get_game_history(); -- Add drop for safety
+
+/*
+ * =======================================
+ * 4. CREATE 'get_game_history' FUNCTION
+ * Fetches game list & usernames
+ * =======================================
+ */
+DROP FUNCTION IF EXISTS public.get_game_history();
+
 CREATE OR REPLACE FUNCTION public.get_game_history()
 RETURNS TABLE(
-     id uuid,
-     created_at timestamp with time zone,
-     white_username text,
-     black_username text,
-     result text,
-     ended_at timestamp with time zone
- )
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path = public
- AS $$
- BEGIN
-     RETURN QUERY
-     SELECT
-         g.id,
-         g.created_at,
-         wu.raw_user_meta_data->>'username' AS white_username,
-         bu.raw_user_meta_data->>'username' AS black_username,
-         g.result,
-         g.ended_at
-     FROM
-         public.games g
-     LEFT JOIN auth.users wu ON g.white_player_id = wu.id
-     LEFT JOIN auth.users bu ON g.black_player_id = bu.id
-     ORDER BY g.created_at DESC; -- Example ordering
- END;
- $$;
+    id uuid,
+    created_at timestamp WITH TIME zone,
+    white_username text,
+    black_username text,
+    result text,
+    ended_at timestamp WITH TIME zone
+)
+LANGUAGE plpgsql
+SECURITY DEFINER -- Runs with elevated privileges
+SET search_path = public
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        g.id,
+        g.created_at,
+        wu.raw_user_meta_data->>'username' AS white_username,
+        bu.raw_user_meta_data->>'username' AS black_username,
+        g.result,
+        g.ended_at
+    FROM
+        public.games g
+    LEFT JOIN auth.users wu ON g.white_player_id = wu.id
+    LEFT JOIN auth.users bu ON g.black_player_id = bu.id
+    ORDER BY g.created_at DESC;
+END;
+$$;
 ```
 
-  - Create a .env file in the root project directory (vue-chess-app/.env) for the server:
-```sh
-SUPABASE_URL=https://<your-project-ref>.supabase.co
-SUPABASE_SERVICE_KEY=<your-supabase-service-key>
-```
+### Step 3: Configure Environment Variables (CRITICAL!)
 
-  - Run the Application
+You must create **two** files to store your Supabase keys. **Do not commit these files to Git.**
+
+1.  **For the Server (`server.js`)**:
+    Create a file named `.env` in the project's **root** directory (`vue-chess-app/.env`). Add your secret `service_role` key here:
+    ```ini
+    # .env (for the Node.js server)
+    SUPABASE_URL=https://<your-project-ref>.supabase.co
+    SUPABASE_SERVICE_KEY=<your-supabase-SERVICE-ROLE-key>
+    ```
+
+2.  **For the Client (Vue App)**:
+    Create a file named `.env.local` in the project's **root** directory (`vue-chess-app/.env.local`). Add your public `anon` key here. **Note the `VITE_` prefix is required by Vite.**
+    ```ini
+    # .env.local (for the Vue client)
+    VITE_SUPABASE_URL=https://<your-project-ref>.supabase.co
+    VITE_SUPABASE_ANON_KEY=<your-supabase-ANON-key>
+    ```
+
+### Step 4: Update Code to Use Environment Variables
+
+You must now modify your code to *use* these new variables.
+
+1.  **Modify `server.js` (Server-side)**:
+    This removes your hard-coded secret key. First, you must install the `dotenv` package:
+    ```sh
+    npm install dotenv
+    ```
+
+    Next, find these lines at the top of `server.js`:
+    ```javascript
+    //...
+    import { createClient } from '@supabase/supabase-js';
+
+    const supabase = createClient(
+      '[https://iuzyffugeksdulkkvmnh.supabase.co](https://iuzyffugeksdulkkvmnh.supabase.co)',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1enlmZnVnZWtzZHVsa2t2bW5oIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTM3MDc1OCwiZXhwIjoyMDc0OTQ2NzU4fQ.xVjn6WGyzVMcwj0wKSfhOUTDhDdOq41J9yCoy2Xxuvk'
+    );
+    //...
+    ```
+
+    **Replace them with this:**
+    ```javascript
+    //...
+    import { createClient } from '@supabase/supabase-js';
+    import 'dotenv/config'; // Import dotenv to read .env file
+
+    // Check for environment variables
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
+      throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_KEY in .env file');
+    }
+
+    const supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_KEY
+    );
+    //...
+    ```
+
+2.  **Create Supabase Client (Client-side)**:
+    Your Vue app needs its own Supabase client. Create a new file at **`src/supabase.js`** and add the following:
+    ```javascript
+    // src/supabase.js
+    import { createClient } from '@supabase/supabase-js'
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+    export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+    ```
+
+3.  **Update Your Auth Logic (Client-side)**:
+    Now, tell your `user` store to use this new Supabase client and correctly handle the `username` on sign-up.
+
+    * Find your Pinia store for users (likely at **`src/stores/user.js`**).
+    * **Import** the new client at the top of that file:
+        ```javascript
+        import { supabase } from '@/supabase'; // Import the client we just made
+        import { defineStore } from 'pinia';
+        // ... other imports
+        ```
+    * **Find** your `signUp` function.
+    * **Replace it** with this version. This is **required** for your SQL functions to get the username.
+        ```javascript
+        // Inside your defineStore({ ... actions: { ... } })
+
+        async signUp(email, password, username) {
+          if (!username) {
+            throw new Error('Username is required.');
+          }
+          
+          // This options.data object is CRITICAL
+          const { data, error } = await supabase.auth.signUp({
+            email: email,
+            password: password,
+            options: {
+              data: {
+                username: username 
+              }
+            }
+          });
+
+          if (error) throw error;
+          return data;
+        },
+        ```
+    * Ensure your other auth functions in that file (like `signIn`, `signOut`, `sendPasswordResetEmail`, `updatePassword`) also use the `supabase` client you just imported. For example:
+        ```javascript
+        async signIn(email, password) {
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: email,
+            password: password,
+          });
+          if (error) throw error;
+          return data;
+        },
+        ```
+
+### Step 5: Run the Application
+
+Now you are ready to run the project.
+
 ```sh
+# This one command runs both the server and client
 npm run dev
 ```
 
-## Usage 🖱️
-1. Open the application in your browser (e.g., http://localhost:5173 or your computer's network IP address followed by :5173).
-2. Log in or Sign up using Supabase Auth.
-3. Click the "Play" button to enter the matchmaking queue.
-4. Wait for an opponent. Once found, the game will start automatically.
-5. After a game, click "View Game History" to access the list of completed games.
-6. Click on a game in the history list to replay it or enter analysis mode.
+Your server will be running on `http://localhost:3000` and your Vite client will be available at `http://localhost:5173` (or the next available port).
 
+## Usage 🖱️
+
+1.  Open `http://localhost:5173` in your browser.
+2.  **Sign Up** for a new account (you must provide a **username**).
+3.  Click the "Play" button to enter the matchmaking queue.
+4.  Open a **second browser window** (e.g., in Incognito Mode) and sign up with a *different* account.
+5.  Click "Play" on the second account. The two users will be matched, and the game will start.
+6.  After a game, click "View Game History" to access the list of completed games.
